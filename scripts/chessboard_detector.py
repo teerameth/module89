@@ -19,7 +19,7 @@ import itertools, sklearn.cluster, pyclipper, matplotlib.path
 
 __laps_model = '../models/laps.model.json'
 __laps_weights = '../models/laps.weights.h5'
-config = simplejson.load(open(os.path.join(get_package_share_directory('module67'), 'config', 'camera_config.json')))
+config = simplejson.load(open(os.path.join(get_package_share_directory('module89'), 'config', 'camera_config.json')))
 cameraMatrix = np.array(config['camera_matrix'], np.float32)
 dist = np.array(config['dist'])
 resolution_x, resolution_y = config['width'], config['height']

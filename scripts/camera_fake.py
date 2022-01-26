@@ -54,7 +54,7 @@ class Camera():
 
 class CameraPublisher(Node):
     def __init__(self):
-        super().__init__('camera_publisher')
+        super().__init__('fake_camera_publisher')
         self.publisher_ = self.create_publisher(Image, '/camera1/image', 10)
         timer_period = 1/30  # seconds
         self.timer = self.create_timer(timer_period, self.timer_callback)

@@ -14,7 +14,7 @@ import simplejson
 import os
 import numpy as np
 
-config = simplejson.load(open(os.path.join(get_package_share_directory('module67'), 'config', 'camera_config.json')))
+config = simplejson.load(open(os.path.join(get_package_share_directory('module89'), 'config', 'camera_config.json')))
 cameraMatrix = np.array(config['camera_matrix'], np.float32)
 dist = np.array(config['dist'])
 

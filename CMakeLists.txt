@@ -72,6 +72,7 @@ install(PROGRAMS
   #scripts/robot_navigator.py
   #scripts/get_image.py
   scripts/camera.py
+  scripts/camera_fake.py
   scripts/chessboard_tracker.py
   scripts/chessboard_detector.py
   scripts/chessboard_dope.py
