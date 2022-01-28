@@ -24,8 +24,8 @@ find_package(std_msgs REQUIRED)
 
 ## msg file for service-client ##
 find_package(rosidl_default_generators REQUIRED)
-set(msg_files
-  "msg/markerCorner.msg"
+rosidl_generate_interfaces(${PROJECT_NAME}
+  "srv/FindChessboardPose.srv"
 )
 
 # Include Cpp "include" directory
@@ -34,7 +34,6 @@ install(DIRECTORY
   config
   urdf
   meshes
-  map
   models
   rviz
   param

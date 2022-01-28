@@ -6,6 +6,7 @@ from cv_bridge import CvBridge
 from sensor_msgs.msg import Image
 from std_msgs.msg import Float32
 from ament_index_python.packages import get_package_share_directory
+from module89.srv import FindChessboardPose
 
 import cv2
 import math
@@ -34,15 +35,15 @@ class ChessboardDetect(Node):
     def image_listener_callback(self, image):
         self.frame = self.bridge.imgmsg_to_cv2(image, desired_encoding='passthrough')
         if self.frame is not None:
-            canvas = self.frame
-            if self.chessboard_rot is not None: canvas = cv2.putText(canvas, "%.2f"%self.chessboard_rot.data, (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2, cv2.LINE_AA)
+            canvas = self.frame.copy()
+            if self.chessboard_rot is not None: cv2.putText(canvas, "%.2f"%self.chessboard_rot.data, (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2, cv2.LINE_AA)
             cv2.imshow("A", canvas)
             key = cv2.waitKey(1)
             if key == ord(' '): # capture initial pose
                 # self.chessboard_init_pose = find_chessboard(self.frame)
                 canvas = self.frame.copy()
             elif key == ord('c'): # capture
-                cv2.imwrite('/home/teera/capture.png', self.frame)
+                cv2.imwrite('/home/teera/data_test/capture.png', self.frame)
 
     def chessboard_rotation(self, encoder):
         self.chessboard_rot = encoder
