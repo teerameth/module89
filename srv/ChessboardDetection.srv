@@ -1,0 +1,3 @@
+sensor_msgs/Image img
+---
+int32[4] bbox

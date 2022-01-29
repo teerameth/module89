@@ -6,7 +6,7 @@ from cv_bridge import CvBridge
 from sensor_msgs.msg import Image
 from std_msgs.msg import Float32
 from ament_index_python.packages import get_package_share_directory
-from module89.srv import FindChessboardPose
+from geometry_msgs.msg import PoseStamped
 
 import cv2
 import math
@@ -22,7 +22,7 @@ dist = np.array(config['dist'])
 class ChessboardDetect(Node):
     def __init__(self):
         super().__init__('chessboard_detector')
-        self.camera_sub = self.create_subscription(Image, '/camera1/image', self.image_listener_callback, 10)
+        self.camera_sub = self.create_subscription(Image, '/image', self.image_listener_callback, 10)
         self.chessboard_encoder = self.create_subscription(Float32, '/chessboard/encoder', self.chessboard_rotation, 10)
         self.bridge = CvBridge()
         self.chessboard_init_rot = None
@@ -40,6 +40,14 @@ class ChessboardDetect(Node):
             cv2.imshow("A", canvas)
             key = cv2.waitKey(1)
             if key == ord(' '): # capture initial pose
+                self.send_request()
+                while rclpy.ok():
+                    rclpy.spin_once(self)
+                    if self.future.done():
+                        try:
+                            response = self.future.result()
+                        except Exception as e:
+                            self.get_logger().info('Service call failed %r' % (e,))
                 # self.chessboard_init_pose = find_chessboard(self.frame)
                 canvas = self.frame.copy()
             elif key == ord('c'): # capture
@@ -52,11 +60,15 @@ class ChessboardDetect(Node):
             if rot < 0: rot += math.pi
             # Rotate initial pose around Z-axis
             self.publisher_chessboard.publish(self.pose)
+    
+    def send_request(self):
+        self.req.img = self.frame
+        self.future = self.cli.call_async(self.req)
+
 def main():
     rclpy.init()
     chessboard_detector = ChessboardDetect()
     rclpy.spin(chessboard_detector)
-
     # chessboard_detector.destroy_subscription(chessboard_detector.camera_sub) # Not need camera after init pose
     rclpy.shutdown()
 

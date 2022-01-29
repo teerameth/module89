@@ -1,0 +1,23 @@
+{
+    "configurations": [
+      {
+        "browse": {
+          "databaseFilename": "",
+          "limitSymbolsToIncludedHeaders": true
+        },
+        "includePath": [
+          "${workspaceFolder}/**",
+          "/opt/ros/foxy/include/**",
+          "/usr/include/**",
+          "~/dev_ws/install/module89/include**",
+          "~/dev_ws/src/tratsah/module89/**"
+        ],
+        "defines": [],
+        "compilerPath": "/usr/bin/gcc",
+        "cStandard": "c11",
+        "cppStandard": "c++17",
+        "intelliSenseMode": "clang-x64"
+      }
+    ],
+    "version": 4
+  }

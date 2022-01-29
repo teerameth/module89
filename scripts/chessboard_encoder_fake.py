@@ -23,7 +23,7 @@ class FakeEncoderPublisher(Node):
         while self.rot.data < 0: self.rot.data += math.pi
         print(self.rot)
         self.publisher.publish(self.rot)
-        self.get_logger().info(str(self.rot.data))
+        # self.get_logger().info(str(self.rot.data))
 def main():
     rclpy.init()
     fake_encoder_pub = FakeEncoderPublisher()

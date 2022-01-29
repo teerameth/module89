@@ -17,18 +17,18 @@ import simplejson
 class CameraPublisher(Node):
     def __init__(self):
         super().__init__('fake_camera_publisher')
-        self.publisher_ = self.create_publisher(Image, '/camera1/image', 10)
+        self.publisher_ = self.create_publisher(Image, '/image', 10)
         timer_period = 1/30  # seconds
         self.timer = self.create_timer(timer_period, self.timer_callback)
         config = simplejson.load(open(os.path.join(get_package_share_directory('module89'), 'config', 'camera_config.json')))
         print(config)
-        self.frame = cv2.imread('/home/teera/capture.png')
+        self.frame = cv2.imread(os.path.join(get_package_share_directory('module89'), 'models', '00001.png'))
         self.bridge = CvBridge()
 
     def timer_callback(self):
         image_msg = self.bridge.cv2_to_imgmsg(self.frame, "bgr8")
         self.publisher_.publish(image_msg)
-        self.get_logger().info('Publishing image')
+        # self.get_logger().info('Publishing image')
 
 def main():
     rclpy.init()
