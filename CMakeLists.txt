@@ -21,11 +21,14 @@ find_package(control_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_action REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
 
 ## msg file for service-client ##
 find_package(rosidl_default_generators REQUIRED)
 rosidl_generate_interfaces(${PROJECT_NAME}
-  "srv/FindChessboardPose.srv"
+  "srv/ChessboardDetection.srv"
+  DEPENDENCIES sensor_msgs
 )
 
 # Include Cpp "include" directory
@@ -74,7 +77,9 @@ install(PROGRAMS
   scripts/camera_fake.py
   scripts/chessboard_tracker.py
   scripts/chessboard_detector.py
-  scripts/chessboard_dope.py
+  scripts/chessboard_detector_fake.py
+  scripts/chessboard_locator.py
+  scripts/chessboard_locator_dope.py
   scripts/chessboard_encoder_fake.py
   scripts/geometry.py
   scripts/transform.py
