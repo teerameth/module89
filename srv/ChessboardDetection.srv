@@ -1,3 +1,2 @@
-sensor_msgs/Image img
 ---
-int32[4] bbox
+uint16[4] bbox

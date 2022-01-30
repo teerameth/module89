@@ -7,7 +7,7 @@ import time, math
 
 class FakeEncoderPublisher(Node):
     def __init__(self):
-        super().__init__('fake_encoder_publisher')
+        super().__init__('encoder_publisher_fake')
         self.publisher = self.create_publisher(Float32, '/chessboard/encoder', 10)
         timer_period = 1 / 30  # seconds
         self.timer = self.create_timer(timer_period, self.timer_callback)
