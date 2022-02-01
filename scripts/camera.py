@@ -55,7 +55,7 @@ class Camera():
 class CameraPublisher(Node):
     def __init__(self):
         super().__init__('camera_publisher')
-        self.publisher_ = self.create_publisher(Image, '/camera1/image', 10)
+        self.publisher_ = self.create_publisher(Image, '/image', 10)
         timer_period = 1/30  # seconds
         self.timer = self.create_timer(timer_period, self.timer_callback)
         config = simplejson.load(open(os.path.join(get_package_share_directory('module89'), 'config', 'camera_config.json')))
