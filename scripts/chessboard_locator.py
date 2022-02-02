@@ -20,8 +20,8 @@ from keras.models import model_from_json
 import geometry
 from transform import order_points, poly2view_angle
 
-__laps_model = '../models/laps.model.json'
-__laps_weights = '../models/laps.weights.h5'
+__laps_model = os.path.join(get_package_share_directory('module89'), 'models', 'laps.model.json')
+__laps_weights = os.path.join(get_package_share_directory('module89'), 'models', 'laps.weights.h5')
 NC_LAPS_MODEL = model_from_json(open(__laps_model, 'r').read())
 NC_LAPS_MODEL.load_weights(__laps_weights)
 colors = [(255, 255, 255), (0, 0, 255), (0, 255, 0), (255, 0, 0), (0, 255, 255), (255, 0, 255), (255, 255, 0)]
@@ -731,23 +731,25 @@ def find_chessboard(img, use_chessboard_bbox=False, chessboard_bbox = None):
     rvec, tvec = llr_pad(inner_points, img)
     return rvec, tvec
 
-from module89.srv import FindChessboardPose
+from module89.srv import ChessboardDetection, ChessboardPose
+
 import rclpy
 from rclpy.node import Node
 
 class FindChessboardPoseService(Node):
     def __init__(self):
         super().__init__('find_chessboard_pose_service')
-        self.srv = self.create_service(FindChessboardPose, 'chessboard_locator', self.findpose_callback)  # CHANGE
+        self.srv = self.create_service(ChessboardPose, 'chessboard_locator', self.findpose_callback)  # CHANGE
+        self.create_client(ChessboardDetection, 'chessboard_detection')
     def findpose_callback(self, request, response):
         response.rvec, response.tvec = find_chessboard(request.img)
         self.get_logger().info('Incoming request\na: %d b: %d c: %d' % (request.a, request.b, request.c))  # CHANGE
         return response
-    def main(self):
-        rclpy.init()
-        find_chessboard_service = FindChessboardPoseService()
-        rclpy.spin(find_chessboard_service)
-        rclpy.shutdown()
+def main(self):
+    rclpy.init()
+    find_chessboard_service = FindChessboardPoseService()
+    rclpy.spin(find_chessboard_service)
+    rclpy.shutdown()
 
     if __name__ == '__main__':
         main()

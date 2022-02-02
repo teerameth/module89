@@ -1,5 +1,6 @@
 from launch import LaunchDescription
 from launch_ros.actions import Node
+from launch.substitutions import LaunchConfiguration
 
 def generate_launch_description():
     return LaunchDescription([
@@ -12,7 +13,10 @@ def generate_launch_description():
             package='module89',
             namespace='cam1',
             executable='camera_fake.py',
-            name='camera_fake'
+            name='camera_fake',
+            parameters=[{
+                "camera": LaunchConfiguration('cam1'),
+            }]
         ),
         Node(
             package='module89',

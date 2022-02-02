@@ -10,6 +10,7 @@ from module89.srv import ChessboardDetection
 import os
 import simplejson
 import numpy as np
+import cv2
 
 class ChessboardDetectorService(Node):
     def __init__(self):
@@ -25,8 +26,13 @@ class ChessboardDetectorService(Node):
         if y2 >= height: y2 = height-1
         self.fake_data = [int(x1), int(x2), int(y1), int(y2)]
         print(self.fake_data)
+        self.bridge = CvBridge()
         self.srv = self.create_service(ChessboardDetection, 'chessboard_detection', self.detect_callback)
     def detect_callback(self, request, response):
+        img = self.bridge.imgmsg_to_cv2(request.img, "bgr8")
+        cv2.imshow("detection", img)
+        cv2.waitKey(1000)
+        cv2.destroyWindow("detection")
         print(type(response.bbox))
         response.bbox = np.array(self.fake_data, dtype=np.uint16)
         return response.bbox

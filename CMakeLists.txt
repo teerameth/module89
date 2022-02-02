@@ -28,7 +28,8 @@ find_package(sensor_msgs REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 rosidl_generate_interfaces(${PROJECT_NAME}
   "srv/ChessboardDetection.srv"
-  DEPENDENCIES sensor_msgs
+  "srv/ChessboardPose.srv"
+  DEPENDENCIES sensor_msgs geometry_msgs
 )
 
 # Include Cpp "include" directory

@@ -6,7 +6,7 @@ from cv_bridge import CvBridge
 from sensor_msgs.msg import Image
 from std_msgs.msg import Float32
 from ament_index_python.packages import get_package_share_directory
-from geometry_msgs.msg import PoseStamped
+from geometry_msgs.msg import Pose
 
 import cv2
 import math
@@ -25,7 +25,7 @@ class ChessboardDetect(Node):
         self.camera_sub = self.create_subscription(Image, '/image', self.image_listener_callback, 10)
         self.chessboard_encoder = self.create_subscription(Float32, '/chessboard/encoder', self.chessboard_rotation, 10)
         self.bridge = CvBridge()
-        self.chessboard_init_rot = None
+        self.chessboard_init_encoder = None
         self.chessboard_init_pose = None
         self.chessboard_rot = None
         self.chessboard_pose = None

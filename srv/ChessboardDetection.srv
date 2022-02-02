@@ -1,2 +1,3 @@
+sensor_msgs/Image img
 ---
 uint16[4] bbox
