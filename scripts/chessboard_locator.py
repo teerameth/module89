@@ -739,8 +739,12 @@ from rclpy.node import Node
 class FindChessboardPoseService(Node):
     def __init__(self):
         super().__init__('find_chessboard_pose_service')
-        self.srv = self.create_service(ChessboardPose, 'chessboard_locator', self.findpose_callback)  # CHANGE
-        self.create_client(ChessboardDetection, 'chessboard_detection')
+        self.srv_locator = self.create_service(ChessboardPose, 'chessboard_locator', self.findpose_callback)  # CHANGE
+        self.cli_detection = self.create_client(ChessboardDetection, 'chessboard_detection')
+        while not self.cli_detection.wait_for_service(timeout_sec=1.0):
+            self.get_logger().info('Waiting for chessboard detection service ...')
+        self.req_detection = ChessboardDetection.Request()
+
     def findpose_callback(self, request, response):
         response.rvec, response.tvec = find_chessboard(request.img)
         self.get_logger().info('Incoming request\na: %d b: %d c: %d' % (request.a, request.b, request.c))  # CHANGE
