@@ -732,28 +732,62 @@ def find_chessboard(img, use_chessboard_bbox=False, chessboard_bbox = None):
     return rvec, tvec
 
 from module89.srv import ChessboardDetection, ChessboardPose
+from geometry_msgs.msg import Pose
+from std_msgs.msg import UInt16MultiArray
+from cv_bridge import CvBridge
 
 import rclpy
 from rclpy.node import Node
+from rclpy.executors import MultiThreadedExecutor
+
+import time
+from threading import Thread
 
 class FindChessboardPoseService(Node):
     def __init__(self):
         super().__init__('find_chessboard_pose_service')
-        self.srv_locator = self.create_service(ChessboardPose, 'chessboard_locator', self.findpose_callback)  # CHANGE
-        self.cli_detection = self.create_client(ChessboardDetection, 'chessboard_detection')
-        while not self.cli_detection.wait_for_service(timeout_sec=1.0):
-            self.get_logger().info('Waiting for chessboard detection service ...')
+        self.chessboard_locator_srv = self.create_service(ChessboardPose, 'chessboard_locator', self.findpose_callback)  # CHANGE
+        self.chessboard_detection_cli = self.create_client(ChessboardDetection, 'chessboard_detection')
+        while not self.chessboard_detection_cli.wait_for_service(timeout_sec=1.0):
+            self.get_logger().info('Service \'ChessboardDectection\' not available, waiting ...')
+        self.get_logger().info('Service \'ChessboardDetection\' founded')
+
         self.req_detection = ChessboardDetection.Request()
 
+        self.bridge = CvBridge()
+
+        self.executor = MultiThreadedExecutor(num_threads=4)
+
     def findpose_callback(self, request, response):
-        response.rvec, response.tvec = find_chessboard(request.img)
-        self.get_logger().info('Incoming request\na: %d b: %d c: %d' % (request.a, request.b, request.c))  # CHANGE
-        return response
-def main(self):
+        image = self.bridge.imgmsg_to_cv2(request.img, 'bgr8')
+        self.get_logger().info("AAAAAAAAAAAAAAAA")
+        future = self.send_request(request.img)
+        self.get_logger().info("CCCCCCCCCCCCCCCC")
+        result = future.result()
+
+        if len(result.bbox.data) == 0:
+            response.valid = False
+            return response
+        else:
+            rvec, tvec = find_chessboard(image, use_chessboard_bbox=True, chessboard_bbox=result.bbox.data)
+            self.get_logger().info("EEEEEEEEEEEEEEEEEE")
+            pose = Pose()
+            pose.position.x, pose.position.y, pose.position.z = 0.0, 0.0, 0.0
+            pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w = 1.0, 0.0, 0.0, 0.0
+            response.init_pose = pose
+            response.valid = True
+            return response
+    def send_request(self, image):
+        self.req_detection.img = image
+        return self.chessboard_detection_cli.call_async(self.req_detection)
+
+
+def main():
     rclpy.init()
     find_chessboard_service = FindChessboardPoseService()
     rclpy.spin(find_chessboard_service)
     rclpy.shutdown()
 
-    if __name__ == '__main__':
-        main()
+
+if __name__ == '__main__':
+    main()

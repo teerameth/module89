@@ -11,28 +11,21 @@ def generate_launch_description():
         ),
         Node(
             package='module89',
-            namespace='cam1',
             executable='camera_fake.py',
             name='camera_fake',
-            parameters=[{
-                "camera": LaunchConfiguration('cam1'),
-            }]
         ),
         Node(
             package='module89',
-            namespace='cam1',
             executable='chessboard_detector_fake.py',
             name='chessboard_detector_fake'
         ),
         Node(
             package='module89',
-            namespace='cam1',
             executable='chessboard_locator.py',
             name='chessboard_locator'
         ),
         Node(
             package='module89',
-            namespace='cam1',
             executable='chessboard_tracker.py',
             name='chessboard_tracker'
         )

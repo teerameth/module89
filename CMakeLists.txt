@@ -29,6 +29,7 @@ find_package(rosidl_default_generators REQUIRED)
 rosidl_generate_interfaces(${PROJECT_NAME}
   "srv/ChessboardDetection.srv"
   "srv/ChessboardPose.srv"
+  "srv/AddThreeInts.srv"
   DEPENDENCIES sensor_msgs geometry_msgs
 )
 
@@ -84,6 +85,9 @@ install(PROGRAMS
   scripts/chessboard_encoder_fake.py
   scripts/geometry.py
   scripts/transform.py
+  scripts/example_client.py
+  scripts/example_service.py
+  scripts/client_chessboard_locator.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
