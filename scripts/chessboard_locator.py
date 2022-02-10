@@ -1,4 +1,4 @@
-#!/usr/bin/env /home/teera/.virtualenvs/tf/bin/python
+#!/usr/bin/env /home/teera/anaconda3/envs/tf2/bin/python
 
 import collections
 import itertools
@@ -8,6 +8,7 @@ import pyclipper
 import sklearn.cluster
 
 import cv2
+import tensorflow as tf
 import math
 import numpy as np
 import random
@@ -19,6 +20,12 @@ from keras.models import model_from_json
 
 import geometry
 from transform import order_points, poly2view_angle
+
+from object_detection.utils import label_map_util
+from object_detection.utils import visualization_utils as viz_utils
+PATH_TO_LABELS = os.path.join(get_package_share_directory('module89'), 'models', 'label_map.pbtxt') # Label Map path
+PATH_TO_SAVED_MODEL = os.path.join(get_package_share_directory('module89'), 'models', "chessboard") # Saved model path
+detect_fn = tf.saved_model.load(PATH_TO_SAVED_MODEL)
 
 __laps_model = os.path.join(get_package_share_directory('module89'), 'models', 'laps.model.json')
 __laps_weights = os.path.join(get_package_share_directory('module89'), 'models', 'laps.weights.h5')
@@ -747,10 +754,6 @@ class FindChessboardPoseService(Node):
     def __init__(self):
         super().__init__('find_chessboard_pose_service')
         self.chessboard_locator_srv = self.create_service(ChessboardPose, 'chessboard_locator', self.findpose_callback)  # CHANGE
-        self.chessboard_detection_cli = self.create_client(ChessboardDetection, 'chessboard_detection')
-        while not self.chessboard_detection_cli.wait_for_service(timeout_sec=1.0):
-            self.get_logger().info('Service \'ChessboardDectection\' not available, waiting ...')
-        self.get_logger().info('Service \'ChessboardDetection\' founded')
 
         self.req_detection = ChessboardDetection.Request()
 
@@ -760,10 +763,9 @@ class FindChessboardPoseService(Node):
 
     def findpose_callback(self, request, response):
         image = self.bridge.imgmsg_to_cv2(request.img, 'bgr8')
-        self.get_logger().info("AAAAAAAAAAAAAAAA")
-        future = self.send_request(request.img)
-        self.get_logger().info("CCCCCCCCCCCCCCCC")
-        result = future.result()
+        input_tensor = tf.convert_to_tensor(image)      # The input needs to be a tensor, convert it using `tf.convert_to_tensor`.
+        input_tensor = input_tensor[tf.newaxis, ...]    # The model expects a batch of images, so add an axis with `tf.newaxis`.
+        detections = detect_fn(input_tensor)
 
         if len(result.bbox.data) == 0:
             response.valid = False
