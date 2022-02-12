@@ -11,9 +11,14 @@ def generate_launch_description():
         ),
         Node(
             package='module89',
-            executable='camera_fake.py',
-            name='camera_fake',
+            executable='camera.py',
+            name='camera',
         ),
+        # Node(
+        #     package='module89',
+        #     executable='camera_fake.py',
+        #     name='camera_fake',
+        # ),
         Node(
             package='module89',
             executable='chessboard_detector_fake.py',

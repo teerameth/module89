@@ -1,4 +1,4 @@
-#!/usr/bin/env /home/teera/anaconda3/envs/tf2/bin/python
+#!/usr/bin/env /home/teera/.virtualenvs/tf2/bin/python
 
 import collections
 import itertools
@@ -23,7 +23,7 @@ from transform import order_points, poly2view_angle
 
 from object_detection.utils import label_map_util
 from object_detection.utils import visualization_utils as viz_utils
-PATH_TO_LABELS = os.path.join(get_package_share_directory('module89'), 'models', 'label_map.pbtxt') # Label Map path
+PATH_TO_LABELS = os.path.join(get_package_share_directory('module89'), 'models', "chessboard", 'label_map.pbtxt') # Label Map path
 PATH_TO_SAVED_MODEL = os.path.join(get_package_share_directory('module89'), 'models', "chessboard") # Saved model path
 detect_fn = tf.saved_model.load(PATH_TO_SAVED_MODEL)
 
@@ -41,6 +41,8 @@ resolution_x, resolution_y = config['width'], config['height']
 chess_piece_height = {"king": (0.081, 0.097), "queen": (0.07, 0.0762), "bishop": (0.058, 0.065), "knight": (0.054, 0.05715), "rook": (0.02845, 0.048), "pawn": (0.043, 0.045)}
 chess_piece_diameter = {"king": (0.028, 0.0381), "queen": (0.028, 0.0362), "bishop": (0.026, 0.032), "knight": (0.026, 0.03255), "rook": (0.026, 0.03255), "pawn": (0.0191, 0.02825)}
 scan_box_height = min(chess_piece_height['king'])
+
+canvas = None
 
 def slid_canny(img, sigma=0.25):
     """apply Canny edge detector (automatic thresh)"""
@@ -348,8 +350,6 @@ def llr_unique(a):
     indices = set(next(it) for k, it in itertools.groupby(indices, key=a.__getitem__))
     return [x for i, x in enumerate(a) if i in indices]
 def LLR(img, points, lines, debug=False):
-    old = points
-    # --- otoczka
     def __convex_approx(points, alpha=0.01):
         hull = scipy.spatial.ConvexHull(np.array(points)).vertices
         cnt = np.array([points[pt] for pt in hull])
@@ -514,6 +514,7 @@ def sample_polygon(poly, n=10):
         if counter == n: break
     return sample_points
 def llr_pad(four_points, img, debug=False):
+    global canvas
     points = order_points(np.asarray(four_points))
     rvec, tvec, markerPoints = cv2.aruco.estimatePoseSingleMarkers(corners=np.asarray([points]), markerLength=0.3, cameraMatrix=cameraMatrix, distCoeffs=dist)
     ## [0.0, 0.0, 0.0] is center of ChessBoard
@@ -532,7 +533,7 @@ def llr_pad(four_points, img, debug=False):
     pts = [[int(pts[0][0]), int(pts[0][1])], [int(pts[1][0]), int(pts[1][1])], [int(pts[2][0]), int(pts[2][1])], [int(pts[3][0]), int(pts[3][1])]]
     # print(pts)
     ### Draw axis ###
-    canvas = img.copy()
+    # canvas = img.copy()
     # for point in [O, A, B, C, D]: cv2.aruco.drawAxis(image=canvas, cameraMatrix=cameraMatrix, distCoeffs=dist, rvec=rvec, tvec=tvec + np.dot(point, rotM.T), length=0.1)
     # cv2.imwrite("Board Corner Axis.png", canvas)
     cv2.aruco.drawAxis(image=canvas, cameraMatrix=cameraMatrix, distCoeffs=dist, rvec=rvec, tvec=tvec, length=0.1)
@@ -541,14 +542,14 @@ def llr_pad(four_points, img, debug=False):
     # tracking_tvec.append(tvec)
     cv2.polylines(canvas, [np.array(four_points)], isClosed=True, color=(0, 0, 255), thickness=2)
     cv2.polylines(canvas, [np.array(pts)], isClosed=True, color=(100, 255, 100), thickness=2)
-    cv2.imshow("Polyline", canvas)
-    cv2.waitKey(1)
+    # cv2.imshow("Polyline", canvas)
+    # cv2.waitKey(1)
     # Correct the chessboard side (white on lower y axis)
     rvec = correct_90(img, rvec, tvec, rotM, debug=debug) # check & correct board rotation
     rvec = correct_180(img, rvec, tvec, rotM, debug=debug)
     return rvec, tvec
 
-def llr_tile(img, rvec, tvec, debug=False):
+def llr_tile(img, rvec, tvec, debug=True):
     rotM = np.zeros(shape=(3, 3))
     rotM, _ = cv2.Rodrigues(rvec, rotM, jacobian=0)
     # rotM, _ = cv2.Rodrigues(rvec) # get new rotation matrix
@@ -593,7 +594,7 @@ def llr_tile(img, rvec, tvec, debug=False):
             counter += 1
     return tile_volume_bbox_list, angle_list
 
-def get_bars(rvec, tvec, rotM, size = 0.05, image=None, debug=False):
+def get_bars(rvec, tvec, rotM, size = 0.05, image=None, debug=True):
     Bar_up = [np.array([-0.2, 0.23, 0.0]), np.array([0.2, 0.23, 0.0]), np.array([0.2, 0.2, 0.0]), np.array([-0.2, 0.2, 0.0])]
     # Bar_left = [np.array([-0.23, 0.2, 0.0]), np.array([-0.20, 0.2, 0.0]), np.array([-0.2, -0.2, 0.0]), np.array([-0.23, -0.2, 0.0])]
     # Bar_right = [np.array([0.2, 0.2, 0.0]), np.array([0.23, 0.2, 0.0]), np.array([0.23, -0.2, 0.0]), np.array([0.2, -0.2, 0.0])]
@@ -738,7 +739,7 @@ def find_chessboard(img, use_chessboard_bbox=False, chessboard_bbox = None):
     rvec, tvec = llr_pad(inner_points, img)
     return rvec, tvec
 
-from module89.srv import ChessboardDetection, ChessboardPose
+from module89.srv import ChessboardPose
 from geometry_msgs.msg import Pose
 from std_msgs.msg import UInt16MultiArray
 from cv_bridge import CvBridge
@@ -754,34 +755,64 @@ class FindChessboardPoseService(Node):
     def __init__(self):
         super().__init__('find_chessboard_pose_service')
         self.chessboard_locator_srv = self.create_service(ChessboardPose, 'chessboard_locator', self.findpose_callback)  # CHANGE
-
-        self.req_detection = ChessboardDetection.Request()
-
         self.bridge = CvBridge()
 
-        self.executor = MultiThreadedExecutor(num_threads=4)
-
     def findpose_callback(self, request, response):
+        global canvas
         image = self.bridge.imgmsg_to_cv2(request.img, 'bgr8')
+        canvas = image.copy()
         input_tensor = tf.convert_to_tensor(image)      # The input needs to be a tensor, convert it using `tf.convert_to_tensor`.
         input_tensor = input_tensor[tf.newaxis, ...]    # The model expects a batch of images, so add an axis with `tf.newaxis`.
         detections = detect_fn(input_tensor)
-
-        if len(result.bbox.data) == 0:
-            response.valid = False
-            return response
-        else:
-            rvec, tvec = find_chessboard(image, use_chessboard_bbox=True, chessboard_bbox=result.bbox.data)
-            self.get_logger().info("EEEEEEEEEEEEEEEEEE")
-            pose = Pose()
-            pose.position.x, pose.position.y, pose.position.z = 0.0, 0.0, 0.0
-            pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w = 1.0, 0.0, 0.0, 0.0
-            response.init_pose = pose
-            response.valid = True
-            return response
-    def send_request(self, image):
-        self.req_detection.img = image
-        return self.chessboard_detection_cli.call_async(self.req_detection)
+        # Check if chessboard really exist
+        if detections['num_detections'][0] > 0:
+            best_index = tf.argmax(detections['detection_scores'][0])
+            best_score = detections['detection_scores'][0][best_index]
+            if best_score > 0.8:  # minimum threshold
+                (height, width, _) = image.shape
+                [y_min, x_min, y_max, x_max] = detections['detection_boxes'][0][0]  # [ymin, xmin, ymax, xmax] in range (0,1)
+                x_size, y_size = x_max-x_min, y_max-y_min
+                bbox_extender = 0.2
+                x_min -= bbox_extender * x_size
+                x_max += bbox_extender * x_size
+                y_min -= bbox_extender * y_size
+                y_max += bbox_extender * y_size
+                if x_min < 0: x_min = 0
+                if x_max >= 1: x_max = 0.99
+                if y_min < 0: y_min = 0
+                if y_max >= 1: y_max = 0.99
+                bbox = [x_min * width, y_min * height, x_max * width, y_max * height]
+                bbox = [int(x) for x in bbox]
+                cv2.rectangle(canvas, (bbox[0], bbox[1]), (bbox[2], bbox[3]), (0, 255, 0), 3)
+                try:
+                    rvec, tvec = find_chessboard(image, use_chessboard_bbox=True, chessboard_bbox=bbox)
+                except:
+                    cv2.imshow("A", canvas)
+                    cv2.waitKey(1)
+                    response.valid = False
+                    return response
+                tvec = tvec.reshape(3)  # reshape (1, 3) -> (3)
+                rvec = rvec.reshape(3)  # reshape (3, 1) -> (3)
+                drawBox2D(canvas, rvec, tvec)
+                self.get_logger().info(str(tvec))
+                self.get_logger().info(str(rvec))
+                pose = Pose()
+                pose.position.x, pose.position.y, pose.position.z = tvec[0], tvec[1], tvec[2]
+                [roll, pitch, yaw] = rvec
+                pose.orientation.x = np.sin(roll/2) * np.cos(pitch/2) * np.cos(yaw/2) - np.cos(roll/2) * np.sin(pitch/2) * np.sin(yaw/2)
+                pose.orientation.y = np.cos(roll/2) * np.sin(pitch/2) * np.cos(yaw/2) + np.sin(roll/2) * np.cos(pitch/2) * np.sin(yaw/2)
+                pose.orientation.z = np.cos(roll/2) * np.cos(pitch/2) * np.sin(yaw/2) - np.sin(roll/2) * np.sin(pitch/2) * np.cos(yaw/2)
+                pose.orientation.w = np.cos(roll/2) * np.cos(pitch/2) * np.cos(yaw/2) + np.sin(roll/2) * np.sin(pitch/2) * np.sin(yaw/2)
+                response.init_pose = pose
+                response.valid = True
+                cv2.imshow("A", canvas)
+                cv2.waitKey(1)
+                return response
+        # Chessboard not found
+        cv2.imshow("A", canvas)
+        cv2.waitKey(1)
+        response.valid = False
+        return response
 
 
 def main():
