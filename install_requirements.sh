@@ -1,5 +1,5 @@
 HERE=`pwd`
-pip install pyclipper simplejson
+pip install pyclipper simplejson tensorflow-gpu tensorflow-object-detection-api
 # Install python-v4l2capture
 sudo apt install libv4l-dev
 cd ~
