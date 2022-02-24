@@ -1,4 +1,4 @@
-#!/usr/bin/env /home/teera/.virtualenvs/tf/bin/python
+#!/usr/bin/env python3
 import rclpy
 from rclpy.node import Node
 from cv_bridge import CvBridge
