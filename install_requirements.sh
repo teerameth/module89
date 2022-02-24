@@ -8,3 +8,10 @@ cd ~/python-v4l2capture
 python3 setup.py build
 sudo python3 setup.py install
 cd $HERE
+
+cd /workspaces/isaac_ros-dev
+rosdep install -i --from-path /workspaces/isaac_ros-dev/src/module89 --rosdistro foxy -y
+colcon build --packages-select module89
+. install/setup.bash
+# Fix permission (executable 'chessboard_encoder_fake.py' not found on the libexec directory ... )
+sudo chmod 777 /workspaces/isaac_ros-dev/install/module89/lib/module89/*.py	ros2 launch module89 test.launch.py
