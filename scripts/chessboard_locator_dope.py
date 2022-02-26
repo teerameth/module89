@@ -1,4 +1,4 @@
-#!/usr/bin/env /home/teera/.virtualenvs/cv/bin/python
+#!/usr/bin/env python3
 
 import cv2
 import numpy as np
@@ -10,6 +10,7 @@ from cv_bridge import CvBridge
 import rclpy
 from rclpy.node import Node
 from rclpy.executors import MultiThreadedExecutor
+
 
 def IsolateMaxima(img):
     mask = cv2.dilate(img, kernel=np.one((3, 3)))
