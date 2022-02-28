@@ -137,7 +137,7 @@ def FindPeaks(img, threshold=kMapPeakThreshhold):
     maxima = cv2.findNonZero(mask)  # OpenCV return (col, row)
     peaks = []
     for i in range(len(maxima)):
-        [x, y] = maxima[0][0]
+        [x, y] = maxima[i][0]
         if img[y, x] > threshold:   # NumPy use [row, col]
             peaks.append(maxima[i])
     return peaks
@@ -146,6 +146,7 @@ def FindObjects(maps):  # maps: Array of belief map (80, 60) np.float32
     channel_peaks = []  # int[kNumVertexChannel]
     for chan in range(len(maps)):
         channel_peaks_buffer = []
+        channel_peaks_score = []
         image = maps[chan]  # size = (kInputMapsRow, kInputMapsColumn) dtype=np.float32
         blurred = cv2.GaussianBlur(src=image,
                                    ksize=(0, 0),
@@ -173,14 +174,19 @@ def FindObjects(maps):  # maps: Array of belief map (80, 60) np.float32
                     peak_sum[0] += row * weight
                     peak_sum[1] += col * weight
             if image[peak[1], peak[0]] >= kMapPeakThreshhold:
-                # channel_peaks.append()
+                channel_peaks_score.append(image[peak[1], peak[0]])
                 if weight_sum < kMinimumWeightSum:
                     channel_peaks_buffer.append((peak[0] + kOffsetDueToUpsampling,
                                                  peak[1] + kOffsetDueToUpsampling))
                 else:
                     channel_peaks_buffer.append((peak_sum[0]/weight_sum + kOffsetDueToUpsampling,
                                                  peak_sum[1]/weight_sum + kOffsetDueToUpsampling))
-        channel_peaks.append(channel_peaks_buffer)
+        # Single detection (Only maximum)
+        if len(channel_peaks_score) > 0:
+            channel_peaks.append([channel_peaks_buffer[channel_peaks_score.index(max(channel_peaks_score))]])
+        else: channel_peaks.append([])
+        # Multiple detection
+        # channel_peaks.append(channel_peaks_buffer)
     return channel_peaks
 def normalize8(I):
   mn = I.min()
@@ -214,32 +220,34 @@ class ChessboardDecoder(Node):
         # self.get_logger().info('Tensor Data: "%s"' % tensor_data)
         # self.get_logger().info('Tensor Data: "%d"' % len(tensor_data))
 
-        tensor_data = np.array(tensor_data).view(dtype=np.float32).reshape((kInputMapsChannels, kInputMapsRow, kInputMapsColumn))
-        t = torch.from_numpy(tensor_data)
-        belief_imgs = []
-        upsampling = nn.UpsamplingNearest2d(size=self.frame.shape[:2])
-        in_img = (torch.tensor(self.frame).float() / 255.0)
-        in_img *= 0.5
+        debug = False
+        if debug:
+            tensor_data = np.array(tensor_data).view(dtype=np.float32).reshape((kInputMapsChannels, kInputMapsRow, kInputMapsColumn))
+            t = torch.from_numpy(tensor_data)
+            belief_imgs = []
+            upsampling = nn.UpsamplingNearest2d(size=self.frame.shape[:2])
+            in_img = (torch.tensor(self.frame).float() / 255.0)
+            in_img *= 0.5
 
-        for i in range(9):
-            belief = t[i].clone()
-            # Normalize image to (0, 1)
-            belief -= float(torch.min(belief).item())
-            belief /= float(torch.max(belief).item())
-            belief = torch.clamp(belief, 0, 1).cpu()
-            belief = upsampling(belief.unsqueeze(0).unsqueeze(0)).squeeze().squeeze().data
-            belief = torch.cat([
-                belief.unsqueeze(0) + in_img[:, :, 0],
-                belief.unsqueeze(0) + in_img[:, :, 1],
-                belief.unsqueeze(0) + in_img[:, :, 2]
-            ]).unsqueeze(0)
-            belief = torch.clamp(belief, 0, 1)
-            belief_imgs.append(belief.data.squeeze().numpy())
-        # Create the image grid
-        belief_imgs = torch.tensor(np.array(belief_imgs))
-        im_belief = np.asarray(get_image_grid(belief_imgs, mean=0, std=1)) # PIL -> OpenCV
-        cv2.imshow("GRID", imutils.resize(im_belief, height=960))
-        cv2.waitKey(1)
+            for i in [1, 2, 5, 6]:
+                belief = t[i].clone()
+                # Normalize image to (0, 1)
+                belief -= float(torch.min(belief).item())
+                belief /= float(torch.max(belief).item())
+                belief = torch.clamp(belief, 0, 1).cpu()
+                belief = upsampling(belief.unsqueeze(0).unsqueeze(0)).squeeze().squeeze().data
+                belief = torch.cat([
+                    belief.unsqueeze(0) + in_img[:, :, 0],
+                    belief.unsqueeze(0) + in_img[:, :, 1],
+                    belief.unsqueeze(0) + in_img[:, :, 2]
+                ]).unsqueeze(0)
+                belief = torch.clamp(belief, 0, 1)
+                belief_imgs.append(belief.data.squeeze().numpy())
+            # Create the image grid
+            belief_imgs = torch.tensor(np.array(belief_imgs))
+            im_belief = np.asarray(get_image_grid(belief_imgs, mean=0, std=1)) # PIL -> OpenCV
+            cv2.imshow("GRID", imutils.resize(im_belief, height=480))
+            cv2.waitKey(1)
 
         # Convert uint8[4] -> float32 [ALL]
         # tensor_np = np.array(tensor_data).view(dtype=np.float32).reshape((25, 60, 80, 1))
@@ -262,27 +270,27 @@ class ChessboardDecoder(Node):
         # tensor_data = tensor_data.flatten()
         # self.get_logger().info('Tensor shape: "%s"' % str(tensor_data.shape))
 
-        # for i in [1, 2, 5, 6]:
-        # # for i in range(9):
-        #     stride = kInputMapsRow * kInputMapsColumn * 4   # 4 = sizeof(float)
-        #     offset = stride * i
-        #     # Slice tensor & convert uint8[4] -> float32
-        #     maps.append(np.array(tensor_data[offset:offset+stride]).view('<f4').reshape((kInputMapsRow, kInputMapsColumn)))
-        # objs = FindObjects(maps)
-        # # self.get_logger().info('Object: "%s"' % str(objs))
-        # self.get_logger().info('Object: "%s"' % str([len(obj) for obj in objs]))
-        # canvas = self.frame.copy()
-        # self.get_logger().info('Canvas shape: "%s"' % str(canvas.shape))
-        # for i in range(4):
-        #     peak_list = objs[i]
-        #     for point in peak_list:
-        #         cv2.circle(canvas, (int(point[0]*8), int(point[1]*8)), 3, colors[i%len(colors)], -1)
-        # cv2.imshow("A", canvas)
-        # canvas1 = np.hstack([maps[0], maps[1]])
-        # canvas2 = np.hstack([maps[2], maps[3]])
-        # canvas = np.vstack([canvas1, canvas2])
-        # cv2.imshow("B", imutils.resize(normalize8(canvas), height=480*2))
-        # cv2.waitKey(1)
+        for i in [1, 2, 5, 6]:
+        # for i in range(9):
+            stride = kInputMapsRow * kInputMapsColumn * 4   # 4 = sizeof(float)
+            offset = stride * i
+            # Slice tensor & convert uint8[4] -> float32
+            maps.append(np.array(tensor_data[offset:offset+stride]).view('<f4').reshape((kInputMapsRow, kInputMapsColumn)))
+        objs = FindObjects(maps)
+        # self.get_logger().info('Object: "%s"' % str(objs))
+        self.get_logger().info('Object: "%s"' % str([len(obj) for obj in objs]))
+        canvas = self.frame.copy()
+        self.get_logger().info('Canvas shape: "%s"' % str(canvas.shape))
+        for i in range(4):
+            peak_list = objs[i]
+            for point in peak_list:
+                cv2.circle(canvas, (int(point[0]*8), int(point[1]*8)), 3, colors[i%len(colors)], -1)
+        cv2.imshow("A", canvas)
+        canvas1 = np.hstack([maps[0], maps[1]])
+        canvas2 = np.hstack([maps[2], maps[3]])
+        canvas = np.vstack([canvas1, canvas2])
+        cv2.imshow("B", imutils.resize(normalize8(canvas), height=480*2))
+        cv2.waitKey(1)
 
 
 def main():
