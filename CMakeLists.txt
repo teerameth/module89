@@ -88,6 +88,7 @@ install(PROGRAMS
   scripts/example_client.py
   scripts/example_service.py
   scripts/client_chessboard_locator.py
+  scripts/chessboard_locator_dope.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

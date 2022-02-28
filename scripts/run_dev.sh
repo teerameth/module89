@@ -155,11 +155,18 @@ if [[ -f "$DOCKER_ARGS_FILE" ]]; then
     done
 fi
 
+ls $HOME/dev_ws/src/module89/docker/scripts
+
 # Run container from image
 print_info "Running $CONTAINER_NAME"
+# Export display
+export DISPLAY=:0.0
+xhost +local:docker
+
 docker run -it \
     --privileged --network host \
     ${DOCKER_ARGS[@]} \
+    -e DISPLAY=$DISPLAY \
     -v $ISAAC_ROS_DEV_DIR:/workspaces/isaac_ros-dev \
     --name "$CONTAINER_NAME" \
     --runtime nvidia \
