@@ -68,7 +68,7 @@ class CameraPublisher(Node):
         self.frame = self.cap.read()
         image_msg = self.bridge.cv2_to_imgmsg(self.frame, "bgr8")
         self.publisher_.publish(image_msg)
-        self.get_logger().info('Publishing image')
+        # self.get_logger().info('Publishing image')
 
 def main():
     rclpy.init()

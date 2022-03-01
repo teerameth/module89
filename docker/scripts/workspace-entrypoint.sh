@@ -85,7 +85,7 @@ pip install pyclipper simplejson tensorflow-object-detection-api
 sudo apt install -y libv4l-dev
 ## Install python-v4l2 library from source
 cd ~ || exit 1
-sudo apt-get install -y libv4l-dev
+sudo apt-get install -y libv4l-dev v4l-utils
 git clone https://github.com/jnohlgard/python-v4l2capture
 cd ~/python-v4l2capture || exit 1
 python3 setup.py build

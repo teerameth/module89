@@ -228,6 +228,9 @@ RUN chmod 777 /opt/ros/foxy/setup.bash
 RUN echo "/opt/ros/foxy/setup.bash" >> /home/admin/.bashrc
 RUN apt-get install python3-pip && pip install -U rosdep && rosdep init && rosdep update
 
+RUN export LD_LIBRARY_PATH=/opt/ros/foxy/lib/aarch_64-linux-gnu${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
+RUN apt install ros-foxy-rmw-cyclonedds-cpp
+
 
 ENV USERNAME=${USERNAME}
 ENV USER_GID=${USER_GID}
