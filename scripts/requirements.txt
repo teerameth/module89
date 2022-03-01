@@ -1,0 +1,13 @@
+simplejson==3.16.0
+numpy==1.17.4
+opencv_python==4.4.0.46
+horovod
+photutils
+scipy==1.5.2
+torch==1.6.0
+pyquaternion
+tqdm
+pyrr==0.10.3
+Pillow==8.1.1
+torchvision==0.7.0
+PyYAML==5.3.1
