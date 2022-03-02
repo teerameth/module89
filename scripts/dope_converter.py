@@ -35,7 +35,7 @@ class DopeNetwork(nn.Module):
     def __init__(self, numBeliefMap=5):
         super(DopeNetwork, self).__init__()
 
-        vgg_full = models.vgg19(pretrained=pretrained).features
+        vgg_full = models.vgg19(pretrained=False).features
         self.vgg = nn.Sequential()
         for i_layer in range(24):
             self.vgg.add_module(str(i_layer), vgg_full[i_layer])

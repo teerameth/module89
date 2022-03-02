@@ -18,7 +18,6 @@ from isaac_ros_nvengine_interfaces.msg import TensorList
 kMapPeakThreshhold = 0.01
 kInputMapsRow = 60
 kInputMapsColumn = 80
-kInputMapsChannels = 25
 kGaussianSigma = 3.0
 kMinimumWeightSum = 1e-6
 kOffsetDueToUpsampling = 0.4395
@@ -106,7 +105,7 @@ def make_grid(tensor, nrow=8, padding=2, normalize=False, range_=None, scale_eac
             k = k + 1
     return grid
 
-def get_image_grid(tensor, nrow=3, padding=2, mean=None, std=None):
+def get_image_grid(tensor, nrow=2, padding=2, mean=None, std=None):
     """
     Saves a given Tensor into an image file.
     If given a mini-batch tensor, will save the tensor as a grid of images.
@@ -220,16 +219,16 @@ class ChessboardDecoder(Node):
         # self.get_logger().info('Tensor Data: "%s"' % tensor_data)
         # self.get_logger().info('Tensor Data: "%d"' % len(tensor_data))
 
-        debug = False
+        debug = True
         if debug:
-            tensor_data = np.array(tensor_data).view(dtype=np.float32).reshape((kInputMapsChannels, kInputMapsRow, kInputMapsColumn))
+            tensor_data = np.array(tensor_data).view(dtype=np.float32).reshape((5, kInputMapsRow, kInputMapsColumn))
             t = torch.from_numpy(tensor_data)
             belief_imgs = []
             upsampling = nn.UpsamplingNearest2d(size=self.frame.shape[:2])
             in_img = (torch.tensor(self.frame).float() / 255.0)
             in_img *= 0.5
 
-            for i in [1, 2, 5, 6]:
+            for i in range(5):
                 belief = t[i].clone()
                 # Normalize image to (0, 1)
                 belief -= float(torch.min(belief).item())
@@ -265,32 +264,27 @@ class ChessboardDecoder(Node):
 #       ███░░░███░░░███░░░███░░░
 #     2 ████████████████████████ 6
         maps = []
-        # tensor_data = np.array(tensor_data).reshape((4, 25*60*80))
-        # tensor_data = np.swapaxes(tensor_data, 0, 1)
-        # tensor_data = tensor_data.flatten()
-        # self.get_logger().info('Tensor shape: "%s"' % str(tensor_data.shape))
 
-        for i in [1, 2, 5, 6]:
-        # for i in range(9):
-            stride = kInputMapsRow * kInputMapsColumn * 4   # 4 = sizeof(float)
-            offset = stride * i
-            # Slice tensor & convert uint8[4] -> float32
-            maps.append(np.array(tensor_data[offset:offset+stride]).view('<f4').reshape((kInputMapsRow, kInputMapsColumn)))
-        objs = FindObjects(maps)
-        # self.get_logger().info('Object: "%s"' % str(objs))
-        self.get_logger().info('Object: "%s"' % str([len(obj) for obj in objs]))
-        canvas = self.frame.copy()
-        self.get_logger().info('Canvas shape: "%s"' % str(canvas.shape))
-        for i in range(4):
-            peak_list = objs[i]
-            for point in peak_list:
-                cv2.circle(canvas, (int(point[0]*8), int(point[1]*8)), 3, colors[i%len(colors)], -1)
-        cv2.imshow("A", canvas)
-        canvas1 = np.hstack([maps[0], maps[1]])
-        canvas2 = np.hstack([maps[2], maps[3]])
-        canvas = np.vstack([canvas1, canvas2])
-        cv2.imshow("B", imutils.resize(normalize8(canvas), height=480*2))
-        cv2.waitKey(1)
+        # for i in range(5):
+        #     stride = kInputMapsRow * kInputMapsColumn * 4   # 4 = sizeof(float)
+        #     offset = stride * i
+        #     # Slice tensor & convert uint8[4] -> float32
+        #     maps.append(np.array(tensor_data[offset:offset+stride]).view('<f4').reshape((kInputMapsRow, kInputMapsColumn)))
+        # objs = FindObjects(maps)
+        # # self.get_logger().info('Object: "%s"' % str(objs))
+        # self.get_logger().info('Object: "%s"' % str([len(obj) for obj in objs]))
+        # canvas = self.frame.copy()
+        # self.get_logger().info('Canvas shape: "%s"' % str(canvas.shape))
+        # for i in range(4):
+        #     peak_list = objs[i]
+        #     for point in peak_list:
+        #         cv2.circle(canvas, (int(point[0]*8), int(point[1]*8)), 3, colors[i%len(colors)], -1)
+        # cv2.imshow("A", canvas)
+        # canvas1 = np.hstack([maps[0], maps[1]])
+        # canvas2 = np.hstack([maps[2], maps[3]])
+        # canvas = np.vstack([canvas1, canvas2])
+        # cv2.imshow("B", imutils.resize(normalize8(canvas), height=480*2))
+        # cv2.waitKey(1)
 
 
 def main():
