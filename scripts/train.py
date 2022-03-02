@@ -66,6 +66,8 @@ import json
 import glob
 import os
 
+from tqdm import tqdm
+
 from PIL import Image
 from PIL import ImageDraw
 from PIL import ImageEnhance
@@ -1262,70 +1264,68 @@ def _runnetwork(epoch, loader, train=True):
     else:
         net.eval()
 
-    for batch_idx, targets in enumerate(loader):
+    with tqdm(total=len(loader.dataset)) as pbar:   # Progressbar with number of dataset
+        pbar.set_description("Epoch %d" % epoch)
+        for batch_idx, targets in enumerate(loader):
 
-        data = Variable(targets['img'].cuda())
+            data = Variable(targets['img'].cuda())
 
-        # output_belief, output_affinities = net(data)
-        output_belief = net(data)
+            # output_belief, output_affinities = net(data)
+            output_belief = net(data)
 
-        if train:
-            optimizer.zero_grad()
-        target_belief = Variable(targets['beliefs'].cuda())
-        # target_affinity = Variable(targets['affinities'].cuda())
+            if train:
+                optimizer.zero_grad()
+            target_belief = Variable(targets['beliefs'].cuda())
+            # target_affinity = Variable(targets['affinities'].cuda())
 
-        loss = None
+            loss = None
 
-        ## Belief maps loss ##
-        for l in output_belief:  # output, each belief map layers.
-            if loss is None:
-                loss = ((l - target_belief) * (l - target_belief)).mean()
+            ## Belief maps loss ##
+            for l in output_belief:  # output, each belief map layers.
+                if loss is None:
+                    loss = ((l - target_belief) * (l - target_belief)).mean()
+                else:
+                    loss_tmp = ((l - target_belief) * (l - target_belief)).mean()
+                    loss += loss_tmp
+
+            ## Affinities loss ##
+            # for l in output_affinities:  # output, each belief map layers.
+            #     loss_tmp = ((l - target_affinity) * (l - target_affinity)).mean()
+            #     loss += loss_tmp
+
+            if train:
+                loss.backward()
+                optimizer.step()
+                nb_update_network += 1
+
+            if train:
+                namefile = '/loss_train.csv'
             else:
-                loss_tmp = ((l - target_belief) * (l - target_belief)).mean()
-                loss += loss_tmp
+                namefile = '/loss_test.csv'
 
-        ## Affinities loss ##
-        # for l in output_affinities:  # output, each belief map layers.
-        #     loss_tmp = ((l - target_affinity) * (l - target_affinity)).mean()
-        #     loss += loss_tmp
+            with open(opt.outf + namefile, 'a') as file:
+                s = '{}, {},{:.15f}\n'.format(
+                    epoch, batch_idx, loss.data.item())
+                # print (s)
+                file.write(s)
 
-        if train:
-            loss.backward()
-            optimizer.step()
-            nb_update_network += 1
-
-        if train:
-            namefile = '/loss_train.csv'
-        else:
-            namefile = '/loss_test.csv'
-
-        with open(opt.outf + namefile, 'a') as file:
-            s = '{}, {},{:.15f}\n'.format(
-                epoch, batch_idx, loss.data.item())
-            # print (s)
-            file.write(s)
-
-        loss_train_file = open(opt.outf + '/loss_train.csv', 'w')
-        loss_train_file.write('epoch,batchid,loss\n')
-        loss_test_file = open(opt.outf + '/loss_test.csv', 'w')
-        loss_test_file.write('epoch,batchid,loss\n')
-
-        if train:
-            if batch_idx % opt.loginterval == 0:
-                print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.15f}'.format(
-                    epoch, batch_idx * len(data), len(loader.dataset),
-                           100. * batch_idx / len(loader), loss.data.item()))
-                loss_train_file.write('{},{},{:.15f}'.format(epoch, batch_idx * len(data), loss.data.item()))
-        else:
-            if batch_idx % opt.loginterval == 0:
-                print('Test Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.15f}'.format(
-                    epoch, batch_idx * len(data), len(loader.dataset),
-                           100. * batch_idx / len(loader), loss.data.item()))
-                loss_test_file.write('{},{},{:.15f}'.format(epoch, batch_idx * len(data), loss.data.item()))
-        # break
-        if not opt.nbupdates is None and nb_update_network > int(opt.nbupdates):
-            torch.save(net.state_dict(), '{}/net_{}.pth'.format(opt.outf, opt.namefile))
-            break
+            if train:
+                if batch_idx % opt.loginterval == 0:
+                    # print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.15f}'.format(
+                    #     epoch, batch_idx * len(data), len(loader.dataset),
+                    #            100. * batch_idx / len(loader), loss.data.item()))
+                    loss_train_file.write('{},{},{:.15f}'.format(epoch, batch_idx * len(data), loss.data.item()))
+            else:
+                if batch_idx % opt.loginterval == 0:
+                    # print('Test Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.15f}'.format(
+                    #     epoch, batch_idx * len(data), len(loader.dataset),
+                    #            100. * batch_idx / len(loader), loss.data.item()))
+                    loss_test_file.write('{},{},{:.15f}'.format(epoch, batch_idx * len(data), loss.data.item()))
+            # break
+            pbar.update(len(data))  # Update Progressbar (+len(data))
+            if not opt.nbupdates is None and nb_update_network > int(opt.nbupdates):
+                torch.save(net.state_dict(), '{}/net_{}.pth'.format(opt.outf, opt.namefile))
+                break
 
 
 for epoch in range(1, opt.epochs + 1):
