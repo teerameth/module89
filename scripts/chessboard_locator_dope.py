@@ -275,8 +275,8 @@ class ChessboardDecoder(Node):
         objs = FindObjects(maps)
         # self.get_logger().info('Object: "%s"' % str(objs))
         self.get_logger().info('Object: "%s"' % str([len(obj) for obj in objs]))
+
         canvas = self.frame.copy()
-        self.get_logger().info('Canvas shape: "%s"' % str(canvas.shape))
         for i in range(4):
             peak_list = objs[i]
             for point in peak_list:
@@ -287,6 +287,8 @@ class ChessboardDecoder(Node):
         canvas = np.vstack([canvas1, canvas2])
         cv2.imshow("Belief Map", imutils.resize(normalize8(canvas), height=480))
         cv2.waitKey(1)
+
+
 
 
 def main():

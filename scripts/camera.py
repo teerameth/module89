@@ -67,14 +67,13 @@ class CameraPublisher(Node):
     def timer_callback(self):
         self.frame = self.cap.read()
         image_msg = self.bridge.cv2_to_imgmsg(self.frame, "bgr8")
+        image_msg.header.stamp = self.get_clock().now().to_msg()
         self.publisher_.publish(image_msg)
-        # self.get_logger().info('Publishing image')
 
 def main():
     rclpy.init()
     camera_service = CameraPublisher()
     rclpy.spin(camera_service)
-
     camera_service.destroy_node()
     rclpy.shutdown()
 

@@ -6,14 +6,17 @@ if(NOT CMAKE_C_STANDARD)
   set(CMAKE_C_STANDARD 99)
 endif()
 
-# Default to C++14
+# Default to C++17
 if(NOT CMAKE_CXX_STANDARD)
-  set(CMAKE_CXX_STANDARD 14)
+  set(CMAKE_CXX_STANDARD 17)
 endif()
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
+
+execute_process(COMMAND uname -m COMMAND tr -d '\n' OUTPUT_VARIABLE ARCHITECTURE)
+message( STATUS "Architecture: ${ARCHITECTURE}" )
 
 # Find dependencies
 find_package(ament_cmake REQUIRED)
@@ -23,9 +26,11 @@ find_package(rclcpp_action REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(ament_cmake_auto REQUIRED)
+find_package(rosidl_default_generators REQUIRED)
+ament_auto_find_build_dependencies()
 
 ## msg file for service-client ##
-find_package(rosidl_default_generators REQUIRED)
 rosidl_generate_interfaces(${PROJECT_NAME}
   "srv/ChessboardDetection.srv"
   "srv/ChessboardPose.srv"
@@ -33,7 +38,32 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   DEPENDENCIES sensor_msgs geometry_msgs
 )
 
-# Include Cpp "include" directory
+# DNN Image Encoder Node
+ament_auto_add_library(dnn_image_encoder_node SHARED src/dnn_image_encoder_node.cpp)
+target_compile_definitions(dnn_image_encoder_node
+  PRIVATE "COMPOSITION_BUILDING_DLL"
+)
+rclcpp_components_register_nodes(dnn_image_encoder_node "DnnImageEncoderNode")
+set(node_plugins "${node_plugins}DnnImageEncoderNode;$<TARGET_FILE:dnn_image_encoder_node>\n")
+
+ament_auto_add_executable("dnn_image_encoder" src/dnn_image_encoder_main.cpp)
+
+install(
+  TARGETS dnn_image_encoder_node
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin
+)
+
+# tensor_rt_node
+ament_auto_add_library(tensor_rt_node SHARED src/tensor_rt_node.cpp)
+target_compile_definitions(tensor_rt_node
+  PRIVATE "COMPOSITION_BUILDING_DLL"
+)
+target_link_libraries(tensor_rt_node)
+rclcpp_components_register_nodes(tensor_rt_node "TensorRTNode")
+set(node_plugins "${node_plugins}TensorRTNode;$<TARGET_FILE:tensor_rt_node>\n")
+
 install(DIRECTORY
   launch
   config
@@ -66,15 +96,6 @@ install(DIRECTORY
 ament_python_install_package(${PROJECT_NAME})
 # Install Python executables
 install(PROGRAMS
-  #scripts/teleop_twist_keyboard.py
-  #scripts/publisher_member_function.py
-  #scripts/teleop_omni_joystick.py
-  #scripts/teleop_twist_joystick.py
-  #scripts/teleop_planar_joystick.py
-  #scripts/aruco_service.py
-  #scripts/commander.py
-  #scripts/robot_navigator.py
-  #scripts/get_image.py
   scripts/camera.py
   scripts/camera_fake.py
   scripts/chessboard_tracker.py
@@ -100,4 +121,5 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 endif()
 
-ament_package()
+# ament_package()
+ament_auto_package(INSTALL_TO_SHARE)
