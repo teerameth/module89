@@ -59,7 +59,7 @@ class CameraPublisher(Node):
         timer_period = 1/30  # seconds
         self.timer = self.create_timer(timer_period, self.timer_callback)
         config = simplejson.load(open(os.path.join(get_package_share_directory('module89'), 'config', 'camera_config.json')))
-        print(config)
+        self.get_logger().info(str(config))
         self.cap = Camera(0, width=config['width'], height=config['height'])
         self.frame = self.cap.read()
         self.bridge = CvBridge()

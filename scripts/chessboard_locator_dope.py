@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import cv2
+import time
 import numpy as np
 import imutils
 import torch, math
@@ -218,8 +219,9 @@ class ChessboardDecoder(Node):
         # self.get_logger().info('Tensor Stride: "%s"' % tensor_strides)
         # self.get_logger().info('Tensor Data: "%s"' % tensor_data)
         # self.get_logger().info('Tensor Data: "%d"' % len(tensor_data))
+        cv2.imshow("Camera", self.frame)
 
-        debug = True
+        debug = False
         if debug:
             tensor_data = np.array(tensor_data).view(dtype=np.float32).reshape((5, kInputMapsRow, kInputMapsColumn))
             t = torch.from_numpy(tensor_data)
@@ -265,26 +267,26 @@ class ChessboardDecoder(Node):
 #     2 ████████████████████████ 6
         maps = []
 
-        # for i in range(5):
-        #     stride = kInputMapsRow * kInputMapsColumn * 4   # 4 = sizeof(float)
-        #     offset = stride * i
-        #     # Slice tensor & convert uint8[4] -> float32
-        #     maps.append(np.array(tensor_data[offset:offset+stride]).view('<f4').reshape((kInputMapsRow, kInputMapsColumn)))
-        # objs = FindObjects(maps)
-        # # self.get_logger().info('Object: "%s"' % str(objs))
-        # self.get_logger().info('Object: "%s"' % str([len(obj) for obj in objs]))
-        # canvas = self.frame.copy()
-        # self.get_logger().info('Canvas shape: "%s"' % str(canvas.shape))
-        # for i in range(4):
-        #     peak_list = objs[i]
-        #     for point in peak_list:
-        #         cv2.circle(canvas, (int(point[0]*8), int(point[1]*8)), 3, colors[i%len(colors)], -1)
-        # cv2.imshow("A", canvas)
-        # canvas1 = np.hstack([maps[0], maps[1]])
-        # canvas2 = np.hstack([maps[2], maps[3]])
-        # canvas = np.vstack([canvas1, canvas2])
-        # cv2.imshow("B", imutils.resize(normalize8(canvas), height=480*2))
-        # cv2.waitKey(1)
+        for i in range(5):
+            stride = kInputMapsRow * kInputMapsColumn * 4   # 4 = sizeof(float)
+            offset = stride * i
+            # Slice tensor & convert uint8[4] -> float32
+            maps.append(np.array(tensor_data[offset:offset+stride]).view('<f4').reshape((kInputMapsRow, kInputMapsColumn)))
+        objs = FindObjects(maps)
+        # self.get_logger().info('Object: "%s"' % str(objs))
+        self.get_logger().info('Object: "%s"' % str([len(obj) for obj in objs]))
+        canvas = self.frame.copy()
+        self.get_logger().info('Canvas shape: "%s"' % str(canvas.shape))
+        for i in range(4):
+            peak_list = objs[i]
+            for point in peak_list:
+                cv2.circle(canvas, (int(point[0]*8), int(point[1]*8)), 3, colors[i%len(colors)], -1)
+        cv2.imshow("Keypoints", canvas)
+        canvas1 = np.hstack([maps[0], maps[1]])
+        canvas2 = np.hstack([maps[2], maps[3]])
+        canvas = np.vstack([canvas1, canvas2])
+        cv2.imshow("Belief Map", imutils.resize(normalize8(canvas), height=480))
+        cv2.waitKey(1)
 
 
 def main():
