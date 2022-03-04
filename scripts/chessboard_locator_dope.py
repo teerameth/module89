@@ -7,9 +7,8 @@ import imutils, simplejson, os
 import torch, math
 from torch import nn
 from geometry_msgs.msg import Pose, Point, Quaternion
-from std_msgs.msg import UInt16MultiArray
-from sensor_msgs.msg import CameraInfo, Image
 from cv_bridge import CvBridge
+from scipy.spatial.transform import Rotation as R
 
 import rclpy
 from rclpy.node import Node
@@ -205,7 +204,7 @@ def normalize8(I):
 def FindMax(maps):
     max_points = []
     for m in maps:
-        min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(m)
+        min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(cv2.GaussianBlur(m, (3, 3), 0))
         max_points.append(max_loc)
     return max_points
 def rvec2quat(rvec):
@@ -225,15 +224,15 @@ class ChessboardDecoder(Node):
     def __init__(self):
         super().__init__('chessboard_dope_decoder')
         self.tensor_sub = self.create_subscription(TensorList, '/tensor_sub', self.tensor_listener_callback, 10)
-        self.frame_sub = self.create_subscription(Image, '/dope/input', self.image_listener_callback, 10)
+        # self.frame_sub = self.create_subscription(Image, '/dope/input', self.image_listener_callback, 10)
 
         self.pose_pub = self.create_publisher(Pose, '/pose', 10)
 
-        self.frame = np.zeros((480, 640, 3), dtype=np.uint8)
+        # self.frame = np.zeros((480, 640, 3), dtype=np.uint8)
         self.bridge = CvBridge()
         self.get_logger().info('Node started ...')
-    def image_listener_callback(self, data):
-        self.frame = self.bridge.imgmsg_to_cv2(data)
+    # def image_listener_callback(self, data):
+    #     self.frame = self.bridge.imgmsg_to_cv2(data)
     def tensor_listener_callback(self, tensor_list):
         tensor = tensor_list.tensors[0]
         # tensor_name = tensor.name           # output
@@ -247,7 +246,7 @@ class ChessboardDecoder(Node):
         # self.get_logger().info('Tensor Stride: "%s"' % tensor_strides)
         # self.get_logger().info('Tensor Data: "%s"' % tensor_data)
         # self.get_logger().info('Tensor Data: "%d"' % len(tensor_data))
-        cv2.imshow("Camera", self.frame)
+        # cv2.imshow("Camera", self.frame)
 
         # debug = False
         # if debug:
@@ -316,9 +315,14 @@ class ChessboardDecoder(Node):
 
 
         points = FindMax(maps)
-        obj_points = np.array([[-0.2, 0.23, 0], [-0.2, -0.23, 0], [0.2, 0.23, 0], [0.2, -0.23, 0], [0, 0, 0]])
-        img_points = np.array([points[0], points[1], points[2], points[3], points[4]], dtype=np.double)*8
+        # self.get_logger().info(str(points))
+        # obj_points = np.array([[-0.2, 0.23, 0], [-0.2, -0.23, 0], [0.2, 0.23, 0], [0.2, -0.23, 0], [0, 0, 0]])
+        # img_points = np.array([points[0], points[1], points[2], points[3], points[4]], dtype=np.double)*8
+        obj_points = np.array([[-0.2, 0.23, 0], [-0.2, -0.23, 0], [0.2, 0.23, 0], [0.2, -0.23, 0]])
+        img_points = np.array([points[0], points[1], points[2], points[3]], dtype=np.double) * 8
+
         ret, rvec, tvec = cv2.solvePnP(objectPoints=obj_points, imagePoints=img_points, cameraMatrix=cameraMatrix, distCoeffs=dist, flags=0)
+
         # canvas = self.frame.copy()
         # cv2.aruco.drawAxis(image=canvas, cameraMatrix=cameraMatrix, distCoeffs=dist, rvec=rvec, tvec=tvec, length=0.1)
         # cv2.imshow('A', canvas)
@@ -328,7 +332,10 @@ class ChessboardDecoder(Node):
         pose_msg.position = Point(x=tvec[0][0],
                                   y=tvec[1][0],
                                   z=tvec[2][0])
-        pose_msg.orientation = rvec2quat(rvec)
+        r = R.from_matrix(cv2.Rodrigues(rvec)[0])
+        rvec = Quaternion()
+        [rvec.x, rvec.y, rvec.z, rvec.w] = r.as_quat()
+        pose_msg.orientation = rvec
         self.pose_pub.publish(pose_msg)
 
 

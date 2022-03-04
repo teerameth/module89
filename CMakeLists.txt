@@ -39,32 +39,6 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   DEPENDENCIES sensor_msgs geometry_msgs
 )
 
-# DNN Image Encoder Node
-ament_auto_add_library(dnn_image_encoder_node SHARED src/dnn_image_encoder_node.cpp)
-target_compile_definitions(dnn_image_encoder_node
-  PRIVATE "COMPOSITION_BUILDING_DLL"
-)
-rclcpp_components_register_nodes(dnn_image_encoder_node "DnnImageEncoderNode")
-set(node_plugins "${node_plugins}DnnImageEncoderNode;$<TARGET_FILE:dnn_image_encoder_node>\n")
-
-ament_auto_add_executable("dnn_image_encoder" src/dnn_image_encoder_main.cpp)
-
-install(
-  TARGETS dnn_image_encoder_node
-  ARCHIVE DESTINATION lib
-  LIBRARY DESTINATION lib
-  RUNTIME DESTINATION bin
-)
-
-# tensor_rt_node
-ament_auto_add_library(tensor_rt_node SHARED src/tensor_rt_node.cpp)
-target_compile_definitions(tensor_rt_node
-  PRIVATE "COMPOSITION_BUILDING_DLL"
-)
-target_link_libraries(tensor_rt_node)
-rclcpp_components_register_nodes(tensor_rt_node "TensorRTNode")
-set(node_plugins "${node_plugins}TensorRTNode;$<TARGET_FILE:tensor_rt_node>\n")
-
 install(DIRECTORY
   launch
   config
@@ -101,8 +75,6 @@ install(PROGRAMS
   scripts/camera_fake.py
   scripts/chessboard_tracker.py
   scripts/chessboard_detector.py
-  scripts/chessboard_detector_fake.py
-  scripts/chessboard_locator.py
   scripts/chessboard_locator_dope.py
   scripts/chessboard_classifier.py
   scripts/chessboard_encoder_fake.py
@@ -110,8 +82,6 @@ install(PROGRAMS
   scripts/transform.py
   scripts/example_client.py
   scripts/example_service.py
-  scripts/client_chessboard_locator.py
-  scripts/chessboard_locator_dope.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

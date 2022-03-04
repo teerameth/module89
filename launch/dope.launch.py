@@ -47,12 +47,12 @@ def generate_launch_description():
             executable='chessboard_encoder_fake.py',
             name='chessboard_encoder_fake'
         ),
-        # Node(
-        #     package='module89',
-        #     executable='chessboard_locator_dope.py',
-        #     name='chessboard_locator_dope',
-        #     remappings=[('pose', 'dope/output')]
-        # ),
+        Node(
+            package='module89',
+            executable='chessboard_locator_dope.py',
+            name='chessboard_locator_dope',
+            remappings=[('pose', 'dope/output')]
+        ),
         Node(
             package='module89',
             executable='camera.py',
