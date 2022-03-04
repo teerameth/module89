@@ -32,9 +32,10 @@ ament_auto_find_build_dependencies()
 
 ## msg file for service-client ##
 rosidl_generate_interfaces(${PROJECT_NAME}
-  "srv/ChessboardDetection.srv"
-  "srv/ChessboardPose.srv"
-  "srv/AddThreeInts.srv"
+  msg/ChessboardImgPose.msg
+  # "srv/ChessboardDetection.srv"
+  # "srv/ChessboardPose.srv"
+  # "srv/AddThreeInts.srv"
   DEPENDENCIES sensor_msgs geometry_msgs
 )
 
@@ -103,6 +104,7 @@ install(PROGRAMS
   scripts/chessboard_detector_fake.py
   scripts/chessboard_locator.py
   scripts/chessboard_locator_dope.py
+  scripts/chessboard_classifier.py
   scripts/chessboard_encoder_fake.py
   scripts/geometry.py
   scripts/transform.py

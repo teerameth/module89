@@ -19,6 +19,7 @@
 #include "opencv2/dnn.hpp"
 #include "opencv2/opencv.hpp"
 
+
 namespace
 {
 enum NormalizationTypes
@@ -220,8 +221,7 @@ DnnImageEncoderNode::DnnImageEncoderNode(const rclcpp::NodeOptions options)
   impl_->Initialize(this);
 }
 
-void DnnImageEncoderNode::DnnImageEncoderCallback(
-  const sensor_msgs::msg::Image::ConstSharedPtr image_msg)
+void DnnImageEncoderNode::DnnImageEncoderCallback(const sensor_msgs::msg::Image::ConstSharedPtr image_msg)
 {
   isaac_ros_nvengine_interfaces::msg::TensorList msg;
   try {
@@ -230,6 +230,7 @@ void DnnImageEncoderNode::DnnImageEncoderCallback(
     RCLCPP_ERROR(get_logger(), "cv_bridge exception: %s", e.what());
     return;
   }
+  msg.header.stamp = image_msg->header.stamp;  // Passing through time stamp (to match output tensor with input image)
   tensor_pub_->publish(msg);
 }
 

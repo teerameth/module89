@@ -40,18 +40,13 @@ TensorRTNode::TensorRTNode(const rclcpp::NodeOptions & options, std::string cust
     extensions_length, package_name),
   model_file_path_(declare_parameter<std::string>("model_file_path", "model.onnx")),
   engine_file_path_(declare_parameter<std::string>("engine_file_path", "/tmp/trt_engine.plan")),
-  input_tensor_names_(declare_parameter<std::vector<std::string>>(
-      "input_tensor_names", std::vector<std::string>())),
-  input_binding_names_(declare_parameter<std::vector<std::string>>(
-      "input_binding_names", std::vector<std::string>())),
-  output_tensor_names_(declare_parameter<std::vector<std::string>>(
-      "output_tensor_names", std::vector<std::string>())),
-  output_binding_names_(declare_parameter<std::vector<std::string>>(
-      "output_binding_names", std::vector<std::string>())),
+  input_tensor_names_(declare_parameter<std::vector<std::string>>("input_tensor_names", std::vector<std::string>())),
+  input_binding_names_(declare_parameter<std::vector<std::string>>("input_binding_names", std::vector<std::string>())),
+  output_tensor_names_(declare_parameter<std::vector<std::string>>("output_tensor_names", std::vector<std::string>())),
+  output_binding_names_(declare_parameter<std::vector<std::string>>("output_binding_names", std::vector<std::string>())),
   force_engine_update_(declare_parameter<bool>("force_engine_update", true)),
   verbose_(declare_parameter<bool>("verbose", true)),
-  max_workspace_size_(declare_parameter<int64_t>(
-      "max_workspace_size", default_max_workspace_size)),
+  max_workspace_size_(declare_parameter<int64_t>("max_workspace_size", default_max_workspace_size)),
   dla_core_(declare_parameter<int64_t>("dla_core", default_dla_core)),
   max_batch_size_(declare_parameter<int32_t>("max_batch_size", 1)),
   enable_fp16_(declare_parameter<bool>("enable_fp16", true)),

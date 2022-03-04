@@ -3,7 +3,7 @@
 import rclpy
 from rclpy.node import Node
 from cv_bridge import CvBridge
-from sensor_msgs.msg import Image
+from sensor_msgs.msg import Image, CameraInfo
 from ament_index_python.packages import get_package_share_directory
 
 import cv2
@@ -55,7 +55,16 @@ class Camera():
 class CameraPublisher(Node):
     def __init__(self):
         super().__init__('camera_publisher')
-        self.publisher_ = self.create_publisher(Image, '/image', 10)
+        self.declare_parameters(
+            namespace='',
+            parameters=[('id', '0')]
+        )
+        camera_id = self.get_parameter('id').value
+        image_topic_name = '/camera{}/image'.format(camera_id)              # Publish image to /cameraX/image
+        self.publisher_ = self.create_publisher(Image, image_topic_name, 10)
+        info_topic_name = '/camera{}/info'.format(camera_id)                # Publish camera info to /cameraX/info
+        self.publisher_info = self.create_publisher(CameraInfo, info_topic_name, 10)
+
         timer_period = 1/30  # seconds
         self.timer = self.create_timer(timer_period, self.timer_callback)
         config = simplejson.load(open(os.path.join(get_package_share_directory('module89'), 'config', 'camera_config.json')))
@@ -64,11 +73,19 @@ class CameraPublisher(Node):
         self.frame = self.cap.read()
         self.bridge = CvBridge()
 
+        # Prepare camera info
+        self.camera_info_msg = CameraInfo()
+        self.camera_info_msg.width = config["width"]
+        self.camera_info_msg.height = config["height"]
+        self.camera_info_msg.k = sum(config["camera_matrix"], [])   # Serialize camera matrix to float32[9]
+        self.camera_info_msg.d = config["dist"]
+
     def timer_callback(self):
         self.frame = self.cap.read()
         image_msg = self.bridge.cv2_to_imgmsg(self.frame, "bgr8")
         image_msg.header.stamp = self.get_clock().now().to_msg()
-        self.publisher_.publish(image_msg)
+        self.publisher_.publish(image_msg)  # Publish image
+        self.publisher_info.publish(self.camera_info_msg)   # Publish camera info
 
 def main():
     rclpy.init()
