@@ -6,14 +6,17 @@ if(NOT CMAKE_C_STANDARD)
   set(CMAKE_C_STANDARD 99)
 endif()
 
-# Default to C++14
+# Default to C++17
 if(NOT CMAKE_CXX_STANDARD)
-  set(CMAKE_CXX_STANDARD 14)
+  set(CMAKE_CXX_STANDARD 17)
 endif()
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
+
+execute_process(COMMAND uname -m COMMAND tr -d '\n' OUTPUT_VARIABLE ARCHITECTURE)
+message( STATUS "Architecture: ${ARCHITECTURE}" )
 
 # Find dependencies
 find_package(ament_cmake REQUIRED)
@@ -23,17 +26,19 @@ find_package(rclcpp_action REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(ament_cmake_auto REQUIRED)
+find_package(rosidl_default_generators REQUIRED)
+ament_auto_find_build_dependencies()
 
 ## msg file for service-client ##
-find_package(rosidl_default_generators REQUIRED)
 rosidl_generate_interfaces(${PROJECT_NAME}
-  "srv/ChessboardDetection.srv"
-  "srv/ChessboardPose.srv"
-  "srv/AddThreeInts.srv"
+  msg/ChessboardImgPose.msg
+  # "srv/ChessboardDetection.srv"
+  # "srv/ChessboardPose.srv"
+  # "srv/AddThreeInts.srv"
   DEPENDENCIES sensor_msgs geometry_msgs
 )
 
-# Include Cpp "include" directory
 install(DIRECTORY
   launch
   config
@@ -66,29 +71,17 @@ install(DIRECTORY
 ament_python_install_package(${PROJECT_NAME})
 # Install Python executables
 install(PROGRAMS
-  #scripts/teleop_twist_keyboard.py
-  #scripts/publisher_member_function.py
-  #scripts/teleop_omni_joystick.py
-  #scripts/teleop_twist_joystick.py
-  #scripts/teleop_planar_joystick.py
-  #scripts/aruco_service.py
-  #scripts/commander.py
-  #scripts/robot_navigator.py
-  #scripts/get_image.py
   scripts/camera.py
   scripts/camera_fake.py
   scripts/chessboard_tracker.py
   scripts/chessboard_detector.py
-  scripts/chessboard_detector_fake.py
-  scripts/chessboard_locator.py
   scripts/chessboard_locator_dope.py
+  scripts/chessboard_classifier.py
   scripts/chessboard_encoder_fake.py
   scripts/geometry.py
   scripts/transform.py
   scripts/example_client.py
   scripts/example_service.py
-  scripts/client_chessboard_locator.py
-  scripts/chessboard_locator_dope.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
@@ -100,4 +93,5 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 endif()
 
-ament_package()
+# ament_package()
+ament_auto_package(INSTALL_TO_SHARE)

@@ -120,7 +120,7 @@ if [[ $arch == aarch64 ]]; then
   rm opencv_contrib.zip
   wget https://bootstrap.pypa.io/get-pip.py
   sudo python3 get-pip.py
-  pip install numpy imutils
+  pip install numpy imutils pyquaternion
   cd opencv
   mkdir build && cd build
   cmake -D CMAKE_BUILD_TYPE=RELEASE \
