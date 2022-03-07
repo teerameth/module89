@@ -19,26 +19,33 @@ cap = cv2.VideoCapture(0)
 cap.set(3, 640)
 cap.set(4, 480)
 
+ort_sess = ort.InferenceSession('../models/chessboard.onnx',
+                                providers=['TensorrtExecutionProvider', 'CUDAExecutionProvider'])  # TensorrtExecutionProvider having the higher priority.
+
 while True:
     image = cap.read()[1]
-    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-    x = np.float32(image)
+    # convert from NHWC to NCHW (batch N, channels C, height H, width W)
+    x = image.transpose([2, 0, 1])   # ([0, 3, 1, 2])
+    x = np.float32(x)
     x /= 255
-    x = x.reshape((3, 480, 640))
     x = np.expand_dims(x, 0)
-    # x, y = test_data[0][0], test_data[0][1]
-    ort_sess = ort.InferenceSession('../models/chessboard.onnx', providers=['TensorrtExecutionProvider', 'CUDAExecutionProvider'])
     outputs = ort_sess.run(None, {'input': x})
     points = FindMax(outputs[0][0])
-    # print(outputs[0][0].shape)
-    print(points)
     obj_points = np.array([[-0.2, 0.23, 0], [-0.2, -0.23, 0], [0.2, 0.23, 0], [0.2, -0.23, 0]])
     img_points = np.array([points[0], points[1], points[2], points[3]], dtype=np.double) * 8
 
-    ret, rvec, tvec = cv2.solvePnP(objectPoints=obj_points, imagePoints=img_points, cameraMatrix=cameraMatrix,
-                                   distCoeffs=dist, flags=0)
+    ret, rvec, tvec = cv2.solvePnP(objectPoints=obj_points,
+                                   imagePoints=img_points,
+                                   cameraMatrix=cameraMatrix,
+                                   distCoeffs=dist,
+                                   flags=0)
     canvas = image.copy()
-    cv2.aruco.drawAxis(image=canvas, cameraMatrix=cameraMatrix, distCoeffs=dist, rvec=rvec, tvec=tvec, length=0.1)
+    cv2.aruco.drawAxis(image=canvas,
+                       cameraMatrix=cameraMatrix,
+                       distCoeffs=dist,
+                       rvec=rvec,
+                       tvec=tvec,
+                       length=0.1)
     cv2.imshow('A', canvas)
     cv2.waitKey(1)
 
@@ -47,7 +54,5 @@ while True:
 # Print Result
 # predicted, actual = classes[outputs[0][0].argmax(0)], classes[y]
 # print(f'Predicted: "{predicted}", Actual: "{actual}"')
-
-
 
 # cv2.destroyAllWindows()
