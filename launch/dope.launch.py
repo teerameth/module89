@@ -9,8 +9,8 @@ MODEL_FILE_NAME = 'chessboard.onnx'
 def generate_launch_description():
     dope_encoder_node = ComposableNode(
             name='dope_encoder',
-            package='module89',
-            plugin='DnnImageEncoderNode',
+            package='isaac_ros_dnn_encoders',
+            plugin='isaac_ros::dnn_inference::DnnImageEncoderNode',
             parameters=[{
                 'network_image_width': 640,
                 'network_image_height': 480,
@@ -21,8 +21,8 @@ def generate_launch_description():
 
     dope_inference_node = ComposableNode(
         name='dope_inference',
-        package='module89',
-        plugin='TensorRTNode',
+        package='isaac_ros_tensor_rt',
+        plugin='isaac_ros::dnn_inference::TensorRTNode',
         parameters=[{
             'model_file_path': os.path.join(os.path.dirname(os.path.abspath(__file__)), '../models', MODEL_FILE_NAME),
             'engine_file_path': '/tmp/trt_engine.plan',
