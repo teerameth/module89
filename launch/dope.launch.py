@@ -82,7 +82,7 @@ def generate_launch_description():
         # ),
         # Node(
         #     package='module89',
-        #     executable='chessboard_tracker.py',
+        #     executable='chessboard_tracker_dual.py',
         #     name='chessboard_tracker'
         # ),
 
