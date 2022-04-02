@@ -3,6 +3,7 @@ import os
 import numpy as np
 import cv2
 import simplejson
+import time
 
 config = simplejson.load(open(os.path.join('../config/camera_config.json')))
 cameraMatrix = np.array(config['camera_matrix'], np.float32)
@@ -23,6 +24,7 @@ ort_sess = ort.InferenceSession('../models/chessboard.onnx',
                                 providers=['TensorrtExecutionProvider', 'CUDAExecutionProvider'])  # TensorrtExecutionProvider having the higher priority.
 
 while True:
+    stamp = time.time()
     image = cap.read()[1]
     # convert from NHWC to NCHW (batch N, channels C, height H, width W)
     x = image.transpose([2, 0, 1])   # ([0, 3, 1, 2])
@@ -46,6 +48,7 @@ while True:
                        rvec=rvec,
                        tvec=tvec,
                        length=0.1)
+    print(int(1/(time.time() - stamp)))
     cv2.imshow('A', canvas)
     cv2.waitKey(1)
 
