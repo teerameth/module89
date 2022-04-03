@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env /home/teera/.virtualenvs/cv/bin/python
 
 import rclpy
 from rclpy.node import Node

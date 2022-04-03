@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env /home/teera/.virtualenvs/cv/bin/python
 import time
 
 import rclpy
@@ -86,7 +86,15 @@ class ChessboardTracker(Node):
         pass
 
     def timer_callback(self):
-        image_buffer = self.image_buffer['camera0'] if self._last_cam == 1 else self.image_buffer['camera1']
+        image_buffer = []
+        # Switch camera if next camera is avaliable
+        if self._last_cam == 0 and len(self.image_buffer['camera1']) > 0:
+            self._last_cam = 1
+            image_buffer = self.image_buffer['camera1']
+        elif self._last_cam == 1 and len(self.image_buffer['camera0']) > 0:
+            self._last_cam = 0
+            image_buffer = self.image_buffer['camera0']
+
         if len(image_buffer) > 0:
             image = image_buffer[-1]
             image_buffer = []   # reset buffer
