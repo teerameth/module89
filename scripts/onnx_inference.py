@@ -17,15 +17,15 @@ def FindMax(maps):
         max_points.append(max_loc)
     return max_points
 
-cap = cv2.VideoCapture("/media/teera/WDPassport4TB/chess/0/0.avi")
-# cap = cv2.VideoCapture(0)
+# cap = cv2.VideoCapture("/media/teera/WDPassport4TB/chess/0/0.avi")
+cap = cv2.VideoCapture(0)
 cap.set(3, 640)
 cap.set(4, 480)
 vdo_length = int(cap. get(cv2. CAP_PROP_FRAME_COUNT))
 ort_sess = ort.InferenceSession('../models/chessboard.onnx',
                                 providers=['TensorrtExecutionProvider', 'CUDAExecutionProvider'])  # TensorrtExecutionProvider having the higher priority.
 
-for frame in range(vdo_length):
+while True:
     stamp = time.time()
     image = cap.read()[1]
     if image.shape != (480, 640, 3):
@@ -45,6 +45,9 @@ for frame in range(vdo_length):
     x /= 255
     x = np.expand_dims(x, 0)
     outputs = ort_sess.run(None, {'input': x})
+    for i in range(5):
+        cv2.imshow("Belief" + str(i), imutils.resize(outputs[0][0][i], height=480))
+
     points = FindMax(outputs[0][0])
     obj_points = np.array([[-0.2, 0.23, 0], [-0.2, -0.23, 0], [0.2, 0.23, 0], [0.2, -0.23, 0]])
     img_points = np.array([points[0], points[1], points[2], points[3]], dtype=np.double) * 8
