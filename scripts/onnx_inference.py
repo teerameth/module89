@@ -1,3 +1,4 @@
+import imutils
 import onnxruntime as ort
 import os
 import numpy as np
@@ -16,16 +17,28 @@ def FindMax(maps):
         max_points.append(max_loc)
     return max_points
 
-cap = cv2.VideoCapture(0)
+cap = cv2.VideoCapture("/media/teera/WDPassport4TB/chess/0/0.avi")
+# cap = cv2.VideoCapture(0)
 cap.set(3, 640)
 cap.set(4, 480)
-
+vdo_length = int(cap. get(cv2. CAP_PROP_FRAME_COUNT))
 ort_sess = ort.InferenceSession('../models/chessboard.onnx',
                                 providers=['TensorrtExecutionProvider', 'CUDAExecutionProvider'])  # TensorrtExecutionProvider having the higher priority.
 
-while True:
+for frame in range(vdo_length):
     stamp = time.time()
     image = cap.read()[1]
+    if image.shape != (480, 640, 3):
+        if image.shape[0] / image.shape[1] > 480/640:   # Use hight as reference
+            image = imutils.resize(image, height=480)
+            delta = 640 - image.shape[1]
+            image = cv2.copyMakeBorder(image, 0, 0, int(delta/2), int(delta/2), borderType=cv2.BORDER_CONSTANT, value=(0, 0, 0))
+        else:   # Use width as reference
+            image = imutils.resize(image, width=640)
+            delta = 480 - image.shape[0]
+            image = cv2.copyMakeBorder(image, int(delta/2), int(delta/2), 0, 0, borderType=cv2.BORDER_CONSTANT, value=(0, 0, 0))
+
+
     # convert from NHWC to NCHW (batch N, channels C, height H, width W)
     x = image.transpose([2, 0, 1])   # ([0, 3, 1, 2])
     x = np.float32(x)
