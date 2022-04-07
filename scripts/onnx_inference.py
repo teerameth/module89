@@ -12,22 +12,31 @@ dist = np.array(config['dist'])
 based_obj_points = np.array([[-0.2, 0.23, 0], [-0.2, -0.23, 0], [0.2, 0.23, 0], [0.2, -0.23, 0], [0, 0, 0]])
 
 def FindMax(maps):
-    max_points, max_vals = [], []
-    for m in maps:
-        min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(cv2.GaussianBlur(m, (3, 3), 0))
-        max_points.append(max_loc)
-        max_vals.append(max_val)
-    return max_points, max_vals
+    for map in maps:
+        NonMaximaSuppression(map)
+    # max_points, max_vals = [], []
+    # for m in maps:
+    #     min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(cv2.GaussianBlur(m, (3, 3), 0))
+    #     max_points.append(max_loc)
+    #     max_vals.append(max_val)
+    # return max_points, max_vals
+def NonMaximaSuppression(map): # Non-maxima suppression
+    # Find pixel that are equal to the local neighborhood not maximum (including 'plateaus')
+    map = map - cv2.GaussianBlur(map, (0, 0), sigmaX=3) + 127   # Highpass filter
+    maxima = cv2.dilate(map, cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3)), iterations=20)
+    mask = cv2.compare(map, maxima, cv2.CMP_GE)
+    # cv2.imshow("NonMaxSuppression", imutils.resize(canvas, height=480))
+    return mask
 
-cap = cv2.VideoCapture("/mnt/HDD4TB/datasets/module89/V4_vdo+labels/20/62.avi")
-# cap = cv2.VideoCapture(0)
+# cap = cv2.VideoCapture("/mnt/HDD/dataset/module89/V4_vdo+labels/20/62.avi")
+cap = cv2.VideoCapture(0)
 cap.set(3, 1920)
 cap.set(4, 1080)
-vdo_length = int(cap. get(cv2. CAP_PROP_FRAME_COUNT))
+# vdo_length = int(cap. get(cv2. CAP_PROP_FRAME_COUNT))
 ort_sess = ort.InferenceSession('../models/chessboard.onnx', providers=['TensorrtExecutionProvider', 'CUDAExecutionProvider'])  # TensorrtExecutionProvider having the higher priority.
 
-for f in range(vdo_length):
-# while True:
+# for f in range(vdo_length):
+while True:
     stamp = time.time()
     image = cap.read()[1]
     image = imutils.resize(image, height=480)[:, 106:106 + 640]
@@ -51,8 +60,9 @@ for f in range(vdo_length):
         cv2.imshow("Belief" + str(i), imutils.resize(outputs[0][0][i], height=480))
 
     canvas = image.copy()
+    NonMaximaSuppression(outputs[0][0][0])
     points, vals = FindMax(outputs[0][0])
-    print(vals)
+    # print(vals)
     confidences = [False if val < 0.05 else True for val in vals]
     for i in range(5):
         if confidences[i] is True:
@@ -92,7 +102,7 @@ for f in range(vdo_length):
                            rvec=rvec,
                            tvec=tvec,
                            length=0.1)
-    # print(int(1/(time.time() - stamp)))
+    print(int(1/(time.time() - stamp)))
     cv2.imshow('A', canvas)
     key = cv2.waitKey(1)
     if key == ord('q'): break
