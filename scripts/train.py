@@ -97,7 +97,7 @@ class DopeNetwork(nn.Module):
     def __init__(
             self,
             pretrained=False,
-            numBeliefMap=5,
+            numBeliefMap=4,
             stop_at_stage=6  # number of stages to process (if less than total number of stages)
     ):
         super(DopeNetwork, self).__init__()
@@ -282,12 +282,12 @@ def loadjson(path, objectsofinterest, img):
             points3d.append((p[0], p[1]))
 
         # Get the centroids
-        pcenter = info['projected_cuboid_centroid']
+        # pcenter = info['projected_cuboid_centroid']
 
-        points3d.append((pcenter[0], pcenter[1]))
+        # points3d.append((pcenter[0], pcenter[1]))
         pointsBelief.append(points3d)
-        points.append(points3d + [(pcenter[0], pcenter[1])])
-        centroids.append((pcenter[0], pcenter[1]))
+        # points.append(points3d + [(pcenter[0], pcenter[1])])
+        # centroids.append((pcenter[0], pcenter[1]))
 
         ## Load tvec & rvec for debug ##
         # load translations
