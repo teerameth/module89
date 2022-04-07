@@ -88,7 +88,7 @@ import warnings
 warnings.filterwarnings("ignore")
 os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
 
-
+n_belief = 4    # number of belief map
 ##################################################
 # NEURAL NETWORK MODEL
 ##################################################
@@ -97,7 +97,7 @@ class DopeNetwork(nn.Module):
     def __init__(
             self,
             pretrained=False,
-            numBeliefMap=4,
+            numBeliefMap=n_belief,
             stop_at_stage=6  # number of stages to process (if less than total number of stages)
     ):
         super(DopeNetwork, self).__init__()
@@ -282,12 +282,13 @@ def loadjson(path, objectsofinterest, img):
             points3d.append((p[0], p[1]))
 
         # Get the centroids
-        # pcenter = info['projected_cuboid_centroid']
+        pcenter = info['projected_cuboid_centroid']
 
         # points3d.append((pcenter[0], pcenter[1]))
         pointsBelief.append(points3d)
+        points.append(points3d)
         # points.append(points3d + [(pcenter[0], pcenter[1])])
-        # centroids.append((pcenter[0], pcenter[1]))
+        centroids.append((pcenter[0], pcenter[1]))
 
         ## Load tvec & rvec for debug ##
         # load translations
@@ -604,7 +605,7 @@ class MultipleVertexJson(data.Dataset):
         beliefsImg = CreateBeliefMap(
             img,
             pointsBelief=pointsBelief,
-            nbpoints=5,
+            nbpoints=n_belief,
             sigma=self.sigma)
 
         ## Create the image maps for belief ##
@@ -1015,7 +1016,7 @@ conf_parser.add_argument("-c", "--config",
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--data',
-                    default="/mnt/WDBlue/dataset/dope/output/chessboard/",
+                    default="/home/teera/chessboard/",
                     help='path to training data')
 
 parser.add_argument('--datatest',
@@ -1079,7 +1080,7 @@ parser.add_argument('--gpuids',
                     help='GPUs to use')
 
 parser.add_argument('--outf',
-                    default='/mnt/WDBlue/model/belief/chessboard',
+                    default='/home/teera/model/belief/chessboard',
                     help='folder to output images and model checkpoints, it will \
     add a train_ in front of the name')
 
