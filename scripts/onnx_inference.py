@@ -12,14 +12,27 @@ dist = np.array(config['dist'])
 based_obj_points = np.array([[-0.2, 0.23, 0], [-0.2, -0.23, 0], [0.2, 0.23, 0], [0.2, -0.23, 0], [0, 0, 0]])
 
 def FindMax(maps):
-    for map in maps:
-        NonMaximaSuppression(map)
-    # max_points, max_vals = [], []
-    # for m in maps:
-    #     min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(cv2.GaussianBlur(m, (3, 3), 0))
-    #     max_points.append(max_loc)
-    #     max_vals.append(max_val)
+    # max_points = []
+    # max_vals = []
+    # for map in maps:
+    #     local_max_mask = NonMaximaSuppression(map)
+    #     local_max_indices = np.where(local_max_mask == [255])
+    #     local_max_indices = np.array(local_max_indices).transpose()
+    #     vals = []
+    #     for i in range(len(local_max_indices)):
+    #         vals.append((local_max_indices[i][1], local_max_indices[i][0]))
+    #         max_points.append((local_max_indices[i][1], local_max_indices[i][0]))
+    #     # max_val = max(vals)
+    #     # max_point = local_max_indices[vals.index(max_val)]
+    #     # max_points.append((max_point[1], max_point[0]))
+    #     # max_vals.append(max_val)
     # return max_points, max_vals
+    max_points, max_vals = [], []
+    for m in maps:
+        min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(cv2.GaussianBlur(m, (3, 3), 0))
+        max_points.append(max_loc)
+        max_vals.append(max_val)
+    return max_points, max_vals
 def NonMaximaSuppression(map): # Non-maxima suppression
     # Find pixel that are equal to the local neighborhood not maximum (including 'plateaus')
     map = map - cv2.GaussianBlur(map, (0, 0), sigmaX=3) + 127   # Highpass filter
@@ -57,16 +70,22 @@ while True:
     x = np.expand_dims(x, 0)
     outputs = ort_sess.run(None, {'input': x})
     for i in range(5):
-        cv2.imshow("Belief" + str(i), imutils.resize(outputs[0][0][i], height=480))
+        overlay = imutils.resize(outputs[0][0][i], height=480)
+        overlay = cv2.cvtColor(overlay, cv2.COLOR_GRAY2BGR)
+        overlay = np.array(overlay*255, dtype=np.uint8)
+        canvas = cv2.addWeighted(image, 0.5, overlay, 0.5, 0)
+        cv2.imshow("Belief" + str(i), canvas)
 
     canvas = image.copy()
-    NonMaximaSuppression(outputs[0][0][0])
+    # points, vals = FindMax(outputs[0][0])
+    # for i in range(len(points)): cv2.circle(canvas, (points[i][0]*8, points[i][1]*8), 3, (255, 0, 0), -1)
     points, vals = FindMax(outputs[0][0])
-    # print(vals)
+    print(vals)
     confidences = [False if val < 0.05 else True for val in vals]
     for i in range(5):
         if confidences[i] is True:
             cv2.circle(canvas, (points[i][0]*8, points[i][1]*8), 3, (255, 0, 0), -1)
+
     # obj_points, img_points = [], []
     # for i in range(5):
     #     if confidences[i] is True:
@@ -87,22 +106,23 @@ while True:
     #                        rvec=rvec,
     #                        tvec=tvec,
     #                        length=0.1)
-    if not False in confidences:
-        obj_points = np.array([[-0.2, 0.23, 0], [-0.2, -0.23, 0], [0.2, 0.23, 0], [0.2, -0.23, 0]])
-        img_points = np.array([points[0], points[1], points[2], points[3]], dtype=np.double) * 8
 
-        ret, rvec, tvec = cv2.solvePnP(objectPoints=obj_points,
-                                       imagePoints=img_points,
-                                       cameraMatrix=cameraMatrix,
-                                       distCoeffs=dist,
-                                       flags=0)
-        cv2.aruco.drawAxis(image=canvas,
-                           cameraMatrix=cameraMatrix,
-                           distCoeffs=dist,
-                           rvec=rvec,
-                           tvec=tvec,
-                           length=0.1)
-    print(int(1/(time.time() - stamp)))
+    # if not False in confidences:
+    #     obj_points = np.array([[-0.2, 0.23, 0], [-0.2, -0.23, 0], [0.2, 0.23, 0], [0.2, -0.23, 0]])
+    #     img_points = np.array([points[0], points[1], points[2], points[3]], dtype=np.double) * 8
+    #
+    #     ret, rvec, tvec = cv2.solvePnP(objectPoints=obj_points,
+    #                                    imagePoints=img_points,
+    #                                    cameraMatrix=cameraMatrix,
+    #                                    distCoeffs=dist,
+    #                                    flags=0)
+    #     cv2.aruco.drawAxis(image=canvas,
+    #                        cameraMatrix=cameraMatrix,
+    #                        distCoeffs=dist,
+    #                        rvec=rvec,
+    #                        tvec=tvec,
+    #                        length=0.1)
+    # print(int(1/(time.time() - stamp)))
     cv2.imshow('A', canvas)
     key = cv2.waitKey(1)
     if key == ord('q'): break
