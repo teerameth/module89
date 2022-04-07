@@ -30,8 +30,12 @@ class Camera():
         image_data = self.cap.read_and_queue()
         return cv2.imdecode(np.frombuffer(image_data, dtype=np.uint8), cv2.IMREAD_COLOR)  # Decode & return
 
-PATH_TO_LABELS = '/media/teera/HDD1TB/model/object_detection/chessboard/label_map.pbtxt'    # Label Map path
-PATH_TO_SAVED_MODEL = "/media/teera/HDD1TB/model/object_detection/chessboard/saved_model"   # Saved model path
+PATH_TO_LABELS = '/mnt/HDD4TB/model/object_detection/chessboard/label_map.pbtxt'    # Label Map path
+PATH_TO_SAVED_MODEL = "/mnt/HDD4TB/model/object_detection/chessboard/saved_model"   # Saved model path
+
+## on-demand VRAM usage (avoid eating up all VRAM)
+gpus = tf.config.experimental.list_physical_devices('GPU')
+for gpu in gpus: tf.config.experimental.set_memory_growth(gpu, True)
 
 print('Loading model...', end='')
 start_time = time.time()
@@ -76,16 +80,16 @@ while True:
 
     image_np_with_detections = img.copy()
 
-    # viz_utils.visualize_boxes_and_labels_on_image_array(
-    #       image_np_with_detections,
-    #       detections['detection_boxes'],
-    #       detections['detection_classes'],
-    #       detections['detection_scores'],
-    #       category_index,
-    #       use_normalized_coordinates=True,
-    #       max_boxes_to_draw=20,
-    #       min_score_thresh=.30,
-    #       agnostic_mode=False)
+    viz_utils.visualize_boxes_and_labels_on_image_array(
+          image_np_with_detections,
+          detections['detection_boxes'],
+          detections['detection_classes'],
+          detections['detection_scores'],
+          category_index,
+          use_normalized_coordinates=True,
+          max_boxes_to_draw=1,
+          min_score_thresh=.70,
+          agnostic_mode=False)
 
     # print('detection_multiclass_scores')
     # print(detections['detection_multiclass_scores'][0][0])
@@ -107,14 +111,14 @@ while True:
         if detections['detection_scores'][0] > 0.7:  # minimum detection threshold
             bbox = detections['detection_boxes'][0] # [ymin, xmin, ymax, xmax]
 
-        (height, width, _) = img.shape
-        bbox[0] = round(bbox[0] * height)
-        bbox[1] = round(bbox[1] * width)
-        bbox[2] = round(bbox[2] * height)
-        bbox[3] = round(bbox[3] * width)
-        bbox = [int(x) for x in bbox]
-        # print(bbox)
-        cv2.rectangle(image_np_with_detections, (bbox[1], bbox[0]), (bbox[3], bbox[2]), (0, 0, 255), 2)
+            (height, width, _) = img.shape
+            bbox[0] = round(bbox[0] * height)
+            bbox[1] = round(bbox[1] * width)
+            bbox[2] = round(bbox[2] * height)
+            bbox[3] = round(bbox[3] * width)
+            bbox = [int(x) for x in bbox]
+            # print(bbox)
+            cv2.rectangle(image_np_with_detections, (bbox[1], bbox[0]), (bbox[3], bbox[2]), (0, 0, 255), 2)
         cv2.imshow("A", image_np_with_detections)
     key = cv2.waitKey(1)
     if key == ord('q'): break
