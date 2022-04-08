@@ -1066,7 +1066,7 @@ parser.add_argument('--manualseed',
 
 parser.add_argument('--epochs',
                     type=int,
-                    default=60,
+                    default=120,
                     help="number of epochs to train")
 
 parser.add_argument('--loginterval',

@@ -43,8 +43,8 @@ def NonMaximaSuppression(map): # Non-maxima suppression
 
 # cap = cv2.VideoCapture("/mnt/HDD/dataset/module89/V4_vdo+labels/20/62.avi")
 cap = cv2.VideoCapture(0)
-cap.set(3, 1920)
-cap.set(4, 1080)
+cap.set(3, 640)
+cap.set(4, 480)
 # vdo_length = int(cap. get(cv2. CAP_PROP_FRAME_COUNT))
 ort_sess = ort.InferenceSession('../models/chessboard.onnx', providers=['TensorrtExecutionProvider', 'CUDAExecutionProvider'])  # TensorrtExecutionProvider having the higher priority.
 
@@ -52,7 +52,7 @@ ort_sess = ort.InferenceSession('../models/chessboard.onnx', providers=['Tensorr
 while True:
     stamp = time.time()
     image = cap.read()[1]
-    image = imutils.resize(image, height=480)[:, 106:106 + 640]
+    if image.shape == (1080, 1920): image = imutils.resize(image, height=480)[:, 106:106 + 640]
     # if image.shape != (480, 640, 3):
     #     if image.0..................................................shape[0] / image.shape[1] > 480/640:   # Use height as reference
     #         image = imutils.resize(image, height=480)
@@ -69,7 +69,7 @@ while True:
     x /= 255
     x = np.expand_dims(x, 0)
     outputs = ort_sess.run(None, {'input': x})
-    for i in range(5):
+    for i in range(4):
         overlay = imutils.resize(outputs[0][0][i], height=480)
         overlay = cv2.cvtColor(overlay, cv2.COLOR_GRAY2BGR)
         overlay = np.array(overlay*255, dtype=np.uint8)
@@ -82,7 +82,7 @@ while True:
     points, vals = FindMax(outputs[0][0])
     print(vals)
     confidences = [False if val < 0.05 else True for val in vals]
-    for i in range(5):
+    for i in range(4):
         if confidences[i] is True:
             cv2.circle(canvas, (points[i][0]*8, points[i][1]*8), 3, (255, 0, 0), -1)
 
