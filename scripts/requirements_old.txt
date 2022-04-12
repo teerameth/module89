@@ -1,0 +1,17 @@
+# python version 3.8.10
+simplejson
+numpy
+opencv_python
+horovod
+photutils
+scipy
+# torch==1.10.2
+# torchvision==0.11.3
+pyquaternion
+tqdm
+pyrr
+Pillow
+PyYAML
+configparser
+onnx
+onnxruntime-gpu
