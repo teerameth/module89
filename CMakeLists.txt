@@ -42,11 +42,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
 install(DIRECTORY
   launch
   config
-  urdf
-  meshes
   models
-  rviz
-  param
   DESTINATION share/${PROJECT_NAME}/
 )
 
@@ -82,6 +78,8 @@ install(PROGRAMS
   scripts/transform.py
   scripts/example_client.py
   scripts/example_service.py
+  scripts/encoder_dynamixel.py
+  scripts/dataset_gatherer.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

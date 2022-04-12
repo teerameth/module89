@@ -3,6 +3,7 @@ import glob
 import json
 import numpy as np
 import tensorflow as tf
+import cv2
 
 # Converting the values into features
 def _int64_feature(value):  # _int64 is used for numeric values
@@ -12,14 +13,16 @@ def _bytes_feature(value):  # _bytes is used for string/char values
 def _float_feature(value):
     return tf.train.Feature(float_list=tf.train.FloatList(value=value))
 
-
 # Create a dictionary describing the features.
 image_feature_description = {
     'height': tf.io.FixedLenFeature([], tf.int64),
     'width': tf.io.FixedLenFeature([], tf.int64),
     'depth': tf.io.FixedLenFeature([], tf.int64),
     'image': tf.io.FixedLenFeature([], tf.string),
-    'corners': tf.io.FixedLenFeature([8], tf.int64)
+    "rvec": tf.io.FixedLenFeature([3], tf.float32),
+    "tvec": tf.io.FixedLenFeature([3], tf.float32),
+    "camera_matrix": tf.io.FixedLenFeature([9], tf.float32),
+    'dist': tf.io.FixedLenFeature([5], tf.float32)
 }
 
 def _parse_image_function(example_proto):
@@ -28,8 +31,9 @@ def _parse_image_function(example_proto):
 
 dataset_config = json.load(open(os.path.join('../../config/dataset_config.json')))
 output_path = dataset_config['capture_path']
-file_list = glob.glob(os.path.join(output_path, '*.tfrecords'))
+file_list = sorted(glob.glob(os.path.join(output_path, '*.tfrecords'))   )
 for file_path in file_list:
+    print(file_path)
     dataset = tf.data.TFRecordDataset(file_path)
     parsed_image_dataset = dataset.map(_parse_image_function)
     # print(parsed_image_dataset)
@@ -38,4 +42,18 @@ for file_path in file_list:
         width = image_features['width'].numpy()
         depth = image_features['depth'].numpy()
         image = tf.io.decode_png(image_features['image'])   # Auto detect image shape when decoded
-        print(image.shape)
+        image = np.array(image, dtype=np.uint8)
+        rvec = image_features['rvec'].numpy()
+        tvec = image_features['tvec'].numpy()
+        cameraMatrix = image_features['camera_matrix'].numpy().reshape((3, 3))
+        dist = image_features['dist'].numpy()
+        canvas = image.copy()
+        cv2.aruco.drawAxis(image=canvas,
+                           cameraMatrix=cameraMatrix,
+                           distCoeffs=dist,
+                           rvec=rvec,
+                           tvec=tvec,
+                           length=0.1)
+        cv2.imshow("A", canvas)
+        key = cv2.waitKey(0)
+        if key == ord('n'): break

@@ -42,7 +42,7 @@ def NonMaximaSuppression(map): # Non-maxima suppression
     return mask
 
 # cap = cv2.VideoCapture("/mnt/HDD/dataset/module89/V4_vdo+labels/20/62.avi")
-cap = cv2.VideoCapture(0)
+cap = cv2.VideoCapture(2)
 cap.set(3, 640)
 cap.set(4, 480)
 # vdo_length = int(cap. get(cv2. CAP_PROP_FRAME_COUNT))
@@ -54,7 +54,7 @@ while True:
     image = cap.read()[1]
     if image.shape == (1080, 1920): image = imutils.resize(image, height=480)[:, 106:106 + 640]
     # if image.shape != (480, 640, 3):
-    #     if image.0..................................................shape[0] / image.shape[1] > 480/640:   # Use height as reference
+    #     if image.shape[0] / image.shape[1] > 480/640:   # Use height as reference
     #         image = imutils.resize(image, height=480)
     #         delta = 640 - image.shape[1]
     #         image = cv2.copyMakeBorder(image, 0, 0, int(delta/2), int(delta/2), borderType=cv2.BORDER_CONSTANT, value=(0, 0, 0))

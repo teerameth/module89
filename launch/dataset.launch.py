@@ -13,6 +13,16 @@ def generate_launch_description():
             executable='camera.py',
             name='camera0',
             parameters=[{
+                'name': 0,
+                'id': 0,
+            }],
+        ),
+        Node(
+            package='module89',
+            executable='camera.py',
+            name='camera1',
+            parameters=[{
+                'name': 1,
                 'id': 2,
             }],
         ),
@@ -20,5 +30,10 @@ def generate_launch_description():
             package='module89',
             executable='encoder_dynamixel.py',
             name='encoder_pub'
-        )
+        ),
+        # Node(
+        #     package='module89',
+        #     executable='dataset_gatherer.py',
+        #     name='dataset_gatherer'
+        # )
     ])

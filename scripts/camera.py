@@ -57,19 +57,21 @@ class CameraPublisher(Node):
         super().__init__('camera_publisher')
         self.declare_parameters(
             namespace='',
-            parameters=[('id', '0')]
+            parameters=[('name', '0'), ('id', '0')]
         )
-        camera_id = self.get_parameter('id').value
-        image_topic_name = '/camera{}/image'.format(camera_id)              # Publish image to /cameraX/image
+        self.get_logger().info("/dev/video"+str(self.get_parameter('id').value))
+        camera_id = self.get_parameter('id').value      # /dev/video*
+        camera_name = self.get_parameter('name').value  # ROS2 topic name "/camera*"
+        image_topic_name = '/camera{}/image'.format(camera_name)              # Publish image to /cameraX/image
         self.publisher_ = self.create_publisher(Image, image_topic_name, 10)
-        info_topic_name = '/camera{}/info'.format(camera_id)                # Publish camera info to /cameraX/info
+        info_topic_name = '/camera{}/info'.format(camera_name)                # Publish camera info to /cameraX/info
         self.publisher_info = self.create_publisher(CameraInfo, info_topic_name, 10)
 
         timer_period = 1/30  # seconds
         self.timer = self.create_timer(timer_period, self.timer_callback)
         config = simplejson.load(open(os.path.join(get_package_share_directory('module89'), 'config', 'camera_config.json')))
         self.get_logger().info(str(config))
-        self.cap = Camera(0, width=config['width'], height=config['height'])
+        self.cap = Camera(camera_id, width=config['width'], height=config['height'])
         self.frame = self.cap.read()
         self.bridge = CvBridge()
 

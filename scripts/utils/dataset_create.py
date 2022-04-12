@@ -3,7 +3,6 @@ import glob
 import json
 import numpy as np
 import tensorflow as tf
-import tempfile
 
 def _bytes_feature(value):
     """Returns a bytes_list from a string / byte."""
@@ -45,7 +44,6 @@ image_size = (480, 640, 3)
 ### Define reference pose before first folder creation ###
 
 for i in range(5):  # Each VDO
-    example_path = os.path.join(tempfile.gettempdir(), "example.tfrecords")
     tfrecord_filename = os.path.join(output_path, f"{str(last_index).zfill(5)}.tfrecords")
     # Initiating the writer and creating the tfrecords file.
     writer = tf.io.TFRecordWriter(tfrecord_filename)

@@ -4,7 +4,6 @@ import time
 import rclpy
 from rclpy.node import Node
 from cv_bridge import CvBridge
-from sensor_msgs.msg import Image, CameraInfo
 from std_msgs.msg import Float32
 from ament_index_python.packages import get_package_share_directory
 from geometry_msgs.msg import Pose, Point, Quaternion
