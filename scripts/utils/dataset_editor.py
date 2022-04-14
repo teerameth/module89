@@ -31,7 +31,7 @@ def _parse_image_function(example_proto):
 
 dataset_config = json.load(open(os.path.join('../../config/dataset_config.json')))
 output_path = dataset_config['capture_path']
-file_list = sorted(glob.glob(os.path.join(output_path, '*.tfrecords'))   )
+file_list = sorted(glob.glob(os.path.join(output_path, '*.tfrecords')))
 for file_path in file_list:
     print(file_path)
     dataset = tf.data.TFRecordDataset(file_path)
