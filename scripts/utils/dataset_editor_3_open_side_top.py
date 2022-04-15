@@ -32,11 +32,13 @@ top_tfrecord = os.path.join(output_path, 'top.tfrecords')
 side_tfrecord = os.path.join(output_path, 'side.tfrecords')
 
 dataset = tf.data.TFRecordDataset(side_tfrecord)
+# print(sum(1 for _ in dataset))
+
 parsed_image_dataset = dataset.map(_parse_image_function)
 for image_features in parsed_image_dataset:
     label = image_features['label'].numpy()
     image = tf.io.decode_png(image_features['image'])  # Auto detect image shape when decoded
     image = np.array(image, dtype=np.uint8)
-    cv2.putText(image, labels[label], (10, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color=(0, 0, 255))
-    cv2.imshow("A", image)
-    cv2.waitKey(0)
+    cv2.imshow(labels[label], image)
+    key = cv2.waitKey(1)
+    if key == ord('q'): break

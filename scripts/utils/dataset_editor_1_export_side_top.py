@@ -171,71 +171,72 @@ file_list = sorted(glob.glob(os.path.join(output_path, '*.tfrecords')))
 fen_list = sorted(glob.glob(os.path.join(output_path, '*.txt')))
 top_writer = tf.io.TFRecordWriter(os.path.join(output_path, 'top.tfrecords'))
 side_writer = tf.io.TFRecordWriter(os.path.join(output_path, 'side.tfrecords'))
-for i in tqdm(range(len(file_list))):
+
+for i in range(len(file_list)):
     file_path = file_list[i]
     fen = open(fen_list[i], "r").readline()
     print(file_path, fen_list[i])
     if '\n' in fen: fen = fen[:-1]
     board = fen2board(fen)
     dataset = tf.data.TFRecordDataset(file_path)
-    parsed_image_dataset = dataset.map(_parse_image_function)
+    parsed_image_dataset = dataset.map(_parse_image_function, num_parallel_calls=tf.data.AUTOTUNE)
+    with tqdm() as pbar:
+        for image_features in parsed_image_dataset:
+            pbar.update(1)
+            height = image_features['height'].numpy()
+            width = image_features['width'].numpy()
+            depth = image_features['depth'].numpy()
+            image = tf.io.decode_png(image_features['image'])   # Auto detect image shape when decoded
+            image = np.array(image, dtype=np.uint8)
+            rvec = image_features['rvec'].numpy()
+            tvec = image_features['tvec'].numpy()
+            cameraMatrix = image_features['camera_matrix'].numpy().reshape((3, 3))
+            dist = image_features['dist'].numpy()
 
-    for image_features in parsed_image_dataset:
+            CNNinputs_padded, angle_list = get_tile(image, rvec, tvec)
 
-        height = image_features['height'].numpy()
-        width = image_features['width'].numpy()
-        depth = image_features['depth'].numpy()
-        image = tf.io.decode_png(image_features['image'])   # Auto detect image shape when decoded
-        image = np.array(image, dtype=np.uint8)
-        rvec = image_features['rvec'].numpy()
-        tvec = image_features['tvec'].numpy()
-        cameraMatrix = image_features['camera_matrix'].numpy().reshape((3, 3))
-        dist = image_features['dist'].numpy()
-
-        vertical_images = []
-        CNNinputs_padded, angle_list = get_tile(image, rvec, tvec)
-
-
-        angle = pose2view_angle(rvec, tvec) # get view angle (radian)
-        # divide 2 camera view [top <0.05, side >0.3]
-        for x in range(8):
-            for y in range(8):
-                label = board[y][x]
-                tile_image = CNNinputs_padded[8 * y + x]
-                if angle > 0.2: # side view
-                    if label != 0:
-                        label = label - 1
+            angle = pose2view_angle(rvec, tvec) # get view angle (radian)
+            # divide 2 camera view [top <0.05, side >0.3]
+            for x in range(8):
+                for y in range(8):
+                    label = board[y][x]
+                    tile_image = CNNinputs_padded[8 * y + x]
+                    if angle > 0.2: # side view
+                        if label != 0:
+                            label = label - 1
+                            tf_example = image_example(tile_image, label)
+                            side_writer.write(tf_example.SerializeToString())
+                        else: continue # skip empty
+                    else: # top view
+                        if label != 0: label = 1    # binary label
                         tf_example = image_example(tile_image, label)
-                        side_writer.write(tf_example.SerializeToString())
-                    else: continue # skip empty
-                else: # top view
-                    if label != 0: label = 1    # binary label
-                    tf_example = image_example(tile_image, label)
-                    top_writer.write(tf_example.SerializeToString())
+                        top_writer.write(tf_example.SerializeToString())
 
-        canvas = image.copy()
-        cv2.aruco.drawAxis(image=canvas,
-                           cameraMatrix=cameraMatrix,
-                           distCoeffs=dist,
-                           rvec=rvec,
-                           tvec=tvec,
-                           length=0.1)
-        cv2.imshow("A", canvas)
-        # for x in range(8):
-        #     image_list_vertical = []
-        #     for y in range(8):
-        #         canvas = resize_and_pad(CNNinputs_padded[8 * y + x].copy(), size=100)
-        #         # cv2.putText(canvas, str(round(angle_list[8 * y + x])), (10, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color=(0, 0, 255))
-        #         label = board[y][x]
-        #         if label != 0:
-        #             cv2.putText(canvas, labels[label - 1], (10, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
-        #                         color=(0, 0, 255))
-        #         image_list_vertical.append(
-        #             cv2.copyMakeBorder(canvas, 1, 1, 1, 1, cv2.BORDER_CONSTANT, None, (0, 255, 0)))
-        #     vertical_images.append(np.vstack(image_list_vertical))
-        # combined_images = np.hstack(vertical_images)
-        # cv2.imshow("All CNN inputs", combined_images)
-        key = cv2.waitKey(1)
-        if key == ord('n'): break
+            # canvas = image.copy()
+            # cv2.aruco.drawAxis(image=canvas,
+            #                    cameraMatrix=cameraMatrix,
+            #                    distCoeffs=dist,
+            #                    rvec=rvec,
+            #                    tvec=tvec,
+            #                    length=0.1)
+            # cv2.imshow("A", canvas)
+
+            # vertical_images = []
+            # for x in range(8):
+            #     image_list_vertical = []
+            #     for y in range(8):
+            #         canvas = resize_and_pad(CNNinputs_padded[8 * y + x].copy(), size=100)
+            #         # cv2.putText(canvas, str(round(angle_list[8 * y + x])), (10, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color=(0, 0, 255))
+            #         label = board[y][x]
+            #         if label != 0:
+            #             cv2.putText(canvas, labels[label - 1], (10, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
+            #                         color=(0, 0, 255))
+            #         image_list_vertical.append(
+            #             cv2.copyMakeBorder(canvas, 1, 1, 1, 1, cv2.BORDER_CONSTANT, None, (0, 255, 0)))
+            #     vertical_images.append(np.vstack(image_list_vertical))
+            # combined_images = np.hstack(vertical_images)
+            # cv2.imshow("All CNN inputs", combined_images)
+            # key = cv2.waitKey(0)
+            # if key == ord('n'): break
 side_writer.close()
 top_writer.close()
