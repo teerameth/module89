@@ -1030,7 +1030,7 @@ parser.add_argument('--gpuids',
     help='GPUs to use')
 
 parser.add_argument('--outf', 
-    default='tmp', 
+    default='/media/teera/ROGESD/model/belief/chessboard',
     help='folder to output images and model checkpoints, it will \
     add a train_ in front of the name')
 
