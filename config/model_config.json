@@ -1,0 +1,5 @@
+{
+  "top_classifier":"/media/teera/ROGESD/model/classification/chess/MobileNetV2_binary/model.h5",
+  "side_classifier":"/media/teera/ROGESD/model/classification/chess/EfficientNetB0_piece/model.h5",
+  "dope":"/media/teera/ROGESD/model/dope/chessboard/net_epoch_120.onnx"
+}
