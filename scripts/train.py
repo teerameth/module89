@@ -1039,7 +1039,7 @@ parser.add_argument('--batchsize',
 
 parser.add_argument('--imagesize',
                     type=int,
-                    default=400,
+                    default=480,
                     help='the height / width of the input image to network')
 
 parser.add_argument('--lr',

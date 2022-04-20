@@ -9,7 +9,7 @@ import time
 config = simplejson.load(open(os.path.join('../config/camera_config.json')))
 cameraMatrix = np.array(config['camera_matrix'], np.float32)
 dist = np.array(config['dist'])
-based_obj_points = np.array([[-0.2, 0.23, 0], [-0.2, -0.23, 0], [0.2, 0.23, 0], [0.2, -0.23, 0], [0, 0, 0]])
+based_obj_points = np.array([[-0.2, 0.23, 0], [-0.2, -0.23, 0], [0.2, 0.23, 0], [0.2, -0.23, 0]])
 
 def FindMax(maps):
     # max_points = []
@@ -42,11 +42,16 @@ def NonMaximaSuppression(map): # Non-maxima suppression
     return mask
 
 # cap = cv2.VideoCapture("/mnt/HDD/dataset/module89/V4_vdo+labels/20/62.avi")
-cap = cv2.VideoCapture(2)
+cap = cv2.VideoCapture(0)
 cap.set(3, 640)
 cap.set(4, 480)
+cap.set(cv2.CAP_PROP_FPS, 30.0)
+cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc('M', 'J', 'P', 'G'))
+cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)
+cap.set(cv2.CAP_PROP_AUTO_WB, 0)
+cap.set(cv2.CAP_PROP_FOCUS, 2)
 # vdo_length = int(cap. get(cv2. CAP_PROP_FRAME_COUNT))
-ort_sess = ort.InferenceSession('../models/chessboard.onnx', providers=['TensorrtExecutionProvider', 'CUDAExecutionProvider'])  # TensorrtExecutionProvider having the higher priority.
+ort_sess = ort.InferenceSession('/media/teera/ROGESD/model/belief/chessboard_blender/net_epoch_30.onnx', providers=['TensorrtExecutionProvider', 'CUDAExecutionProvider'])  # TensorrtExecutionProvider having the higher priority.
 
 # for f in range(vdo_length):
 while True:
@@ -83,8 +88,9 @@ while True:
     print(vals)
     confidences = [False if val < 0.05 else True for val in vals]
     for i in range(4):
-        if confidences[i] is True:
-            cv2.circle(canvas, (points[i][0]*8, points[i][1]*8), 3, (255, 0, 0), -1)
+        cv2.circle(canvas, (points[i][0] * 8, points[i][1] * 8), 3, (255, 0, 0), -1)
+        # if confidences[i] is True:
+        #     cv2.circle(canvas, (points[i][0]*8, points[i][1]*8), 3, (255, 0, 0), -1)
 
     # obj_points, img_points = [], []
     # for i in range(5):
@@ -107,22 +113,22 @@ while True:
     #                        tvec=tvec,
     #                        length=0.1)
 
-    # if not False in confidences:
-    #     obj_points = np.array([[-0.2, 0.23, 0], [-0.2, -0.23, 0], [0.2, 0.23, 0], [0.2, -0.23, 0]])
-    #     img_points = np.array([points[0], points[1], points[2], points[3]], dtype=np.double) * 8
-    #
-    #     ret, rvec, tvec = cv2.solvePnP(objectPoints=obj_points,
-    #                                    imagePoints=img_points,
-    #                                    cameraMatrix=cameraMatrix,
-    #                                    distCoeffs=dist,
-    #                                    flags=0)
-    #     cv2.aruco.drawAxis(image=canvas,
-    #                        cameraMatrix=cameraMatrix,
-    #                        distCoeffs=dist,
-    #                        rvec=rvec,
-    #                        tvec=tvec,
-    #                        length=0.1)
-    # print(int(1/(time.time() - stamp)))
+    if not False in confidences:
+        obj_points = np.array([[-0.2, 0.23, 0], [-0.2, -0.23, 0], [0.2, 0.23, 0], [0.2, -0.23, 0]])
+        img_points = np.array([points[0], points[1], points[2], points[3]], dtype=np.double) * 8
+
+        ret, rvec, tvec = cv2.solvePnP(objectPoints=obj_points,
+                                       imagePoints=img_points,
+                                       cameraMatrix=cameraMatrix,
+                                       distCoeffs=dist,
+                                       flags=0)
+        cv2.aruco.drawAxis(image=canvas,
+                           cameraMatrix=cameraMatrix,
+                           distCoeffs=dist,
+                           rvec=rvec,
+                           tvec=tvec,
+                           length=0.1)
+    print(int(1/(time.time() - stamp)))
     cv2.imshow('A', canvas)
     key = cv2.waitKey(1)
     if key == ord('q'): break
