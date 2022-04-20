@@ -33,9 +33,9 @@ https://github.com/NVlabs/Deep_Object_Pose/blob/master/scripts/train.py in the r
 class DopeNetwork(nn.Module):
     """DopeNetwork class: definition of the dope network model."""
 
-    def __init__(self, numBeliefMap=4):
+    def __init__(self, numBeliefMap=4, stop_at_stage=3):
         super(DopeNetwork, self).__init__()
-
+        self.stop_at_stage = stop_at_stage
         vgg_full = models.vgg19(pretrained=False).features
         self.vgg = nn.Sequential()
         for i_layer in range(24):
@@ -67,28 +67,39 @@ class DopeNetwork(nn.Module):
         # self.m6_1 = DopeNetwork.create_stage(128 + numBeliefMap + numAffinity, numAffinity, False)
 
     def forward(self, x):
-        """Run inference on the neural network."""
+        '''Runs inference on the neural network'''
         out1 = self.vgg(x)
 
         out1_2 = self.m1_2(out1)
 
+        if self.stop_at_stage == 1: return [out1_2]
+
         out2 = torch.cat([out1_2, out1], 1)
         out2_2 = self.m2_2(out2)
+
+        if self.stop_at_stage == 2: return [out1_2, out2_2]
 
         out3 = torch.cat([out2_2, out1], 1)
         out3_2 = self.m3_2(out3)
 
+        if self.stop_at_stage == 3: return [out1_2, out2_2, out3_2]
+
         out4 = torch.cat([out3_2, out1], 1)
         out4_2 = self.m4_2(out4)
+
+        if self.stop_at_stage == 4: return [out1_2, out2_2, out3_2, out4_2]
 
         out5 = torch.cat([out4_2, out1], 1)
         out5_2 = self.m5_2(out5)
 
+        if self.stop_at_stage == 5: return [out1_2, out2_2, out3_2, out4_2, out5_2]
+
         out6 = torch.cat([out5_2, out1], 1)
         out6_2 = self.m6_2(out6)
 
-        return torch.cat([out6_2], 1)
+        # return torch.cat([out6_2, out6_1], 1)
         # return [out1_2, out2_2, out3_2, out4_2, out5_2, out6_2], [out1_1, out2_1, out3_1, out4_1, out5_1, out6_1]
+        return [out1_2, out2_2, out3_2, out4_2, out5_2, out6_2]
 
     @staticmethod
     def create_stage(in_channels, out_channels, first=False):
@@ -186,6 +197,6 @@ def convert(pth_file):
 
 
 if __name__ == '__main__':
-    pth_list = glob.glob("/media/teera/ROGESD/model/belief/chessboard_blender/*.pth")
+    pth_list = glob.glob("/media/teera/ROGESD/model/belief/chessboard_blender_3_stage/*.pth")
     for pth_file in pth_list:
         convert(pth_file)
