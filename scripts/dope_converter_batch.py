@@ -33,7 +33,7 @@ https://github.com/NVlabs/Deep_Object_Pose/blob/master/scripts/train.py in the r
 class DopeNetwork(nn.Module):
     """DopeNetwork class: definition of the dope network model."""
 
-    def __init__(self, numBeliefMap=4, stop_at_stage=3):
+    def __init__(self, numBeliefMap=4, stop_at_stage=6):
         super(DopeNetwork, self).__init__()
         self.stop_at_stage = stop_at_stage
         vgg_full = models.vgg19(pretrained=False).features
