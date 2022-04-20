@@ -1107,7 +1107,7 @@ if not opt.save:
     transform = transforms.Compose([
                                AddRandomContrast(contrast),
                                AddRandomBrightness(brightness),
-                               transforms.Scale(opt.imagesize),
+                               transforms.Resize(opt.imagesize),
                                ])
 else:
     contrast = 0.00001
@@ -1133,7 +1133,7 @@ if not opt.data == "":
         transform = transform,
         normal = normal_imgs,
         target_transform = transforms.Compose([
-                               transforms.Scale(opt.imagesize//8),
+                               transforms.Resize(opt.imagesize//8),
             ]),
         )
     trainingdata = torch.utils.data.DataLoader(train_dataset,
@@ -1169,7 +1169,7 @@ if not opt.datatest == "":
             transform = transform,
             normal = normal_imgs,
             target_transform = transforms.Compose([
-                                   transforms.Scale(opt.imagesize//8),
+                                   transforms.Resize(opt.imagesize//8),
                 ]),
             ),
         batch_size = opt.batchsize, 
