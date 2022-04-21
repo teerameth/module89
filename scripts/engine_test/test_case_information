@@ -1,0 +1,457 @@
+
+
+    Chess Puzzle #1 - White to Move and Mate in Two
+    Chess Puzzle #2 - Checkmate Mate in 2 White to Move
+    Chess Puzzle #3 - White to Move and Mate in 3 Moves
+    Chess Puzzle #4 - Black to Move and Mate in 3
+    Chess Puzzle #5 - Mate in 4 Moves White to Play
+    Chess Puzzle #6 - White to Move and Mate in Three
+    Chess Puzzle #7 - Mate in five moves Black to play
+    Chess Puzzle #8 - Black to Move and Mate in Three
+    Chess Puzzle #9 - Mate in 4 Moves White to Play
+    Chess Puzzle #10 - Find the Best Move Black to Play
+    Chess Puzzle #11 - What is the Best Move for White
+    Chess Puzzle #12 - Black To Play and Mate in Five
+    Chess Puzzle #13 - Mate in Four Moves White to Play
+    Chess Puzzle #14 - Mate in Three Moves white to Play
+    Chess Puzzle #15 - Mate in 4 Moves Black to Play
+    Chess Puzzle #16 - Mate in 4 Moves, White to Play
+    Chess Puzzle #17 - Mate in 4 Black to Move
+    Chess Puzzle #18 - White to Play Mate in 4 Moves
+    Chess Puzzle #19 - Mate in 3 moves Black to Play
+    Chess Puzzle #20 - Mate in 4 Moves white to play
+    Chess Puzzle #21 - Mate in Two Moves – White to Play
+    Chess Puzzle #22 - Mate in 4 Moves White to Play
+    Chess Puzzle #23 - Mate in 5 Moves Black to Play
+    Chess Puzzle #24 - Mate in Two Moves, White to Play
+    Chess Puzzle #25 - Mate in 2 Moves, White to Play
+    Chess Puzzle #26 - Mate in 3 Moves, White to Play
+    Chess Puzzle #27 - Mate in 4 Moves, White to Play
+    Chess Puzzle #28 - Find the Best Move, White to Play
+    Chess Puzzle #29 - Mate in Four Moves, White to Play
+    Chess Puzzle #30 - Mate in 2 Moves, White to Play
+    Chess Puzzle #31 - Find the Worst Move, White to Play
+    Chess Puzzle #32 - Mate in 3 Moves, White to Play
+    Chess Puzzle #33 - Mate in 2 Moves – White to Play
+    Chess Puzzle #34 - Mate in 3 Moves, White to Play
+    Chess Puzzle #35 - Mate in 2 Moves, White to Play
+    Chess Puzzle #36 - Mate in Three Moves, White to Play
+    Chess Puzzle #37 - White to Play, Mate in 2 Moves
+    Chess Puzzle #38 - Mate in 2 Moves, White to Play
+    Chess Puzzle #39 - Mate in Two Moves, White to Play
+    Chess Puzzle #40 - Mate in Two Moves, White to Play
+    Chess Puzzle #41 - White to Play, Mate in Two Moves
+    Chess Puzzle #42 - Mate in 2 Moves, White to Play
+    Chess Puzzle #43 - Find the Best Move, Mate in Two White to Play
+    Chess Puzzle #44 - Mate in Two Moves, White to Play
+    Chess Puzzle #45 - White to Play and Win, Find the Best Move
+    Chess Puzzle #46 - Mate in Three Moves, White to Play
+    Chess Puzzle #47 - Mate in Two Moves, White to Play
+    Chess Puzzle #48 - White to Play and Mate in Two Moves
+    Chess Puzzle #49 - Mate in Two Moves, White to Play
+    Chess Puzzle #50 - White to Play and Mate in 2 Moves
+    Chess Puzzle #51 - Mate in Two Moves, White to Play
+    Chess Puzzle #52 - Mate in Two Moves, White to Play
+    Chess Puzzle #53 - Mate in Two Moves, White to Play
+    Chess Puzzle #54 - White to Play and Mate in Two Moves
+    Chess Puzzle #55 - White to Play and Mate in Three Moves
+    Chess Puzzle #56 - Mate in Two, White to Play
+    Chess Puzzle #57 - White to Play and Mate in Two Moves
+    Chess Puzzle #58 - Mate in Two Moves, White to Play
+    Chess Puzzle #59 - White to Play, Mate in 2 Moves
+    Chess Puzzle #60 - White to Play and Mate in Two Moves
+    Chess Puzzle #61 - White to Play, Mate in Two Moves
+    Chess Puzzle #62 - White to Play and Mate in Two Moves
+    Chess Puzzle #63 - White to Play, Mate in Two Moves
+    Chess Puzzle #64 - White to Play Mate in Three Moves
+    Chess Puzzle #65 - Mate in Two Moves, White to Play
+    Chess Puzzle #66 - White to Play and Mate in Three Moves
+    Chess Puzzle #67 - Mate in Two, White to Play
+    Chess Puzzle #68 - White to Play, Mate in Two Moves
+    Chess Puzzle #69 - Mate in Five Moves, White to Play
+    Chess Puzzle #70 - Mate in 4 Moves, White to Play
+    Chess Puzzle #71 - Mate in Three Moves, White to Play
+    Chess Puzzle #72 - Mate in Three Moves, White to Play
+    Chess Puzzle #73 - Mate in Three Moves, White to Play
+    Chess Puzzle #74 - Mate in Three Moves, White to Play
+    Chess Puzzle #75 - Mate in Three Moves, White to Play
+    Chess Puzzle #76 - Mate in 4 Moves, White to Play
+    Chess Puzzle #77 - Mate in Four Moves, White to Play
+    Chess Puzzle #78 - Mate in Two Moves, White to Play
+    Chess Puzzle #79 - Mate in Three , Black to Move
+    Chess Puzzle #80 - Mate in Three Moves, White to Play
+    Chess Puzzle #81 - Mate in Four Moves, White to Play
+    Chess Puzzle #82 - Mate in Two Moves, White to Play
+    Chess Puzzle #83 - Mate in Four Moves, White to Play
+    Chess Puzzle #84 - Mate in Five, Black to Play
+    Chess Puzzle #85 - Mate in Four Moves, White to Play
+    Chess Puzzle #86 - Mate in Three Moves, White to Play
+    Chess Puzzle #87 - Mate in Three Moves, White to Play
+    Chess Puzzle #88 - Mate in 4 Moves, White to play
+    Chess Puzzle #89 - Mate in 4 moves, Black to play
+    Chess Puzzle #90 - Mate in 3 moves, White to Play
+    Chess Puzzle #91 - Mate in Four Moves, White to Play
+    Chess Puzzle #92 - Mate in Three Moves, White to Play
+    Chess Puzzle #93 - Mate in Three moves, Black to Play
+    Chess Puzzle #94 - Mate in Five moves, White to play
+    Chess Puzzle #95 - Mate in Three Moves, White to play
+    Chess Puzzle #96 - Mate in Three moves, White to play
+    Chess Puzzle #97 - Mate in Four Moves, White to Play
+    Chess Puzzle #98 - Mate in Three Moves, White to Play
+    Chess Puzzle #99 - Mate in four moves, White to play
+    Chess Puzzle #100 - Mate in Three moves, White to play
+    Chess Puzzle #101 - Mate in Three Moves, White to play
+    Chess Puzzle #102 - Mate in 4 Moves, White to Play
+    Chess Puzzle #103 - Mate in 4 Moves, White to Play
+    Chess Puzzle #104 - Mate in Three moves, White to play
+    Chess Puzzle #105 - Mate in three moves, White to play
+    Chess Puzzle #106 - Mate in Three Moves, White to Play
+    Chess Puzzle #107 - Mate in two moves, White to Play
+    Chess Puzzle #108 - Mate in Two Moves, White to Play
+    Chess Puzzle #109 - Mate in two moves, White to Play
+    Chess Puzzle #110 - Mate in Two moves, White to play
+    Chess Puzzle #111 - Mate in Two Moves, White to Play
+    Chess Puzzle #112 - Mate in Two moves, White to Play
+    Chess Puzzle #113 - Mate in Two Moves, White to Play
+    Chess Puzzle #114 - Mate in two moves, White to Play
+    Chess Puzzle #115 - Mate in Five Moves, White to Play
+    Chess Puzzle #116 - Mate in Three Moves, White to Play
+    Chess Puzzle #117 - Mate in Three Moves, White to Play
+    Chess Puzzle #118 - Mate in three Moves, White to Play
+    Chess Puzzle #119 - Mate in Three Moves, Black to Play
+    Chess Puzzle #120 - Mate in Three moves, White to Play
+    Chess Puzzle #121 - Mate in Three Moves, White to Play
+    Chess Puzzle #122 - Mate in Two Moves, White to Play
+    Chess Puzzle #123 - Mate in Two Moves, White to Play
+    Chess Puzzle #124 - Mate in Two Moves, White to Play
+    Chess Puzzle #125 - Mate in two moves, White to Play
+    Chess Puzzle #126 - Mate in Two moves, White to play
+    Chess Puzzle #127 - Mate in Two Moves, White to Play
+    Chess Puzzle #128 - Mate in Two Moves, White to Play
+    Chess Puzzle #129 - Mate in Two Moves, White to Play
+    Chess Puzzle #130 - Mate in Three moves, Black to play
+    Chess Puzzle #131 - Mate in Three Moves, White to Play
+    Chess Puzzle #132 - Mate in Three moves, White to Play
+    Chess Puzzle #133 - Mate in Three moves, White to Play
+    Chess Puzzle #134 - Mate in Three Moves, White to Play
+    Chess Puzzle #135 - Mate in Three Moves, White to Play
+    Chess Puzzle #136 - Mate in Three Moves, White to Play
+    Chess Puzzle #137 - Mate in Three Moves, White to Play
+    Chess Puzzle #138 - Mate in Three moves, White to play
+    Chess Puzzle #139 - Mate in Two Moves, White to Play
+    Chess Puzzle #140 - Mate in Two Moves: White to Play
+    Chess Puzzle #141 - Mate in Three Moves, White to Play
+    Chess Puzzle #142 - Mate in Three Moves, Black To Play
+    Chess Puzzle #143 - Mate in Two Moves, White to Play
+    Chess Puzzle #144 - Mate in Three, White to Play
+    Chess Puzzle #145 - Mate in Three Moves, White to Play
+    Chess Puzzle #146 - Mate in Three Moves, Black to Play
+    Chess Puzzle #147 - Mate in Three Moves, White to Play
+    Chess Puzzle #148 - Mate in Three Moves, White to Play
+    Chess Puzzle #149 - Mate in Three Moves, White to Play
+    Chess Puzzle #150 - Mate in Three Moves, White to Play
+    Chess Puzzle #151 - Mate in 4 Moves, White to Play
+    Chess Puzzle #152 - Mate in Four Moves, White to Play
+    Chess Puzzle #153 - Mate in Four Moves, White to Play
+    Chess Puzzle #154 - Mate in Four moves, White to Play
+    Chess Puzzle #155 - Mate in Four Moves, White to Play
+    Chess Puzzle #156 - Mate in Three Moves, White to Play
+    Chess Puzzle #157 - Mate in Three Moves, White to Play
+    Chess Puzzle #158 - Mate in Three Moves, White to Play
+    Chess Puzzle #159 - Mate in Three Moves, White to Play
+    Chess Puzzle #160 - Mate in Three Moves, White to Play
+    Chess Puzzle #161 - Mate in Two Moves, Black to Play
+    Chess Puzzle #162 - White to Play and Win, Find the best Move
+    Chess Puzzle #163 - Mate in Three Moves, White to Play
+    Chess Puzzle #164 - Mate in Three Moves, White to Play, Paul Morphy – J.Thompson New York 1 859
+    Chess Puzzle #165 - Mate in 6 Moves, White to Play
+    Chess Puzzle #166 - Mate in Four Moves, White to Play
+    Chess Puzzle #167 - White to Play, Find the Best Move
+    Chess Puzzle #168 - Mate in Two Moves, White to Play
+    Chess Puzzle #169 - Mate in 6 Moves, White to Play
+    Chess Puzzle #170 - Mate in Three Moves, Black to Play
+    Chess Puzzle #171 - Mate in Four Moves, Black to Play
+    Chess Puzzle #172 - Mate in Four Moves, White to Play
+    Chess Puzzle #173 - Mate in 3 Moves, Black to Play
+    Chess Puzzle #174 - Find Checkmate in Two Moves, Black to Play
+    Chess Puzzle #175 - Black to Play, Find the Best Move
+    Chess Puzzle #176 - Mate in Three Moves, White to Play
+    Chess Puzzle #177 - Mate in Four Moves, White to Play
+    Chess Puzzle #178 - Mate in 5 Moves, Black to Play
+    Chess Puzzle #179 - Mate in Two Moves, White to Play
+    Chess Puzzle #180 - Mate in 3 Moves, Black to Play
+    Chess Puzzle #181 - Find the Best Move, Black to Move
+    Chess Puzzle #182 - Mate in 6 Moves, White to Play
+    Chess Puzzle #183 - Mate in Three Moves, White to Play
+    Chess Puzzle #184 - Mate in Three Moves, White to Play
+    Chess Puzzle #185 - White to Play and Win, Find Checkmate in Five Moves
+    Chess Puzzle #186 - Mate in 4 Moves, White to Play
+    Chess Puzzle #187 - Mate in Three Moves, White to Play
+    Chess Puzzle #188 - Mate in One move, White to Play
+    Chess Puzzle #189 - Mate in Two Moves, White to Play
+    Chess Puzzle #190 - Checkmate in Four Moves, White to Play
+    Chess Puzzle #191 - White to Play and Win, Find the Best Move
+    Chess Puzzle #192 - Mate in one Move, White to Play
+    Chess Puzzle #193 - White to Play and Checkmate in Five
+    Chess Puzzle #194 - White to Play, Find the Best Move | Kasparov vs Ljubojevic Brussels blitz 1987
+    Chess Puzzle #195 - Mate in Thee, White to Play, Mihai Suba vs Oyula Sax Hastings 1983
+    Chess Puzzle #196 - White to Play and Checkmate in Two
+    Chess Puzzle #197 - White to Play and Win, Find the Best Move
+    Chess Puzzle #198 - White to Play and Checkmate in Three
+    Chess Puzzle #199 - White to Play and Win, Find Checkmate in Four Moves
+    Chess Puzzle #200 - Mate in 1 Move, White to Play
+    Chess Puzzle #201 - Black to Play, Checkmate in 3: Handke vs Timofeev
+    Chess Puzzle #202 - Find Checkmate in Five, White to Play
+    Chess Puzzle #203 - Checkmate in Thee, Black to Play – Westerinen vs Mikhail Tal
+    Chess Puzzle #204 - White to Play and Checkmate in Two
+    Chess Puzzle #205 - Black to move! It’s mate in five
+    Chess Puzzle #206 - White to Play and Win, Find the Best Continuation
+    Chess Puzzle #207 - Checkmate in 1, White to Play
+    Chess Puzzle #208 - Checkmate in Three, White to Play | Lubomir Kavalek vs Hans Ree 1982
+    Chess Puzzle #209 - Mate in Four Moves, Black to Play
+    Chess Puzzle #210 - White to Play and Win the Game, Find the Best Move – Yermolinsky Vs Tate
+    Chess Puzzle #211 - Mate in Three Moves, Black to Play
+    Chess Puzzle #212 - What is the More Powerful Continuation? Christian Bauer Vs Viktor Korchnoi
+    Chess Puzzle #213 - Mate in Four Moves, White to Play
+    Chess Puzzle #214 - White can force Checkmate in two moves
+    Chess Puzzle #215 - White to play and mate in Five
+    Chess Puzzle #216 - Mate in Four Moves, White to Play
+    Chess Puzzle #217 - Mate in Three Moves, Black to Play
+    Chess Puzzle #218 - Checkmate in One Move, White to Play
+    Chess Puzzle #219 - Mate in Two Moves, White to Play
+    Chess Puzzle #220 - Mate in Three Moves, White to Play
+    Chess Puzzle #221 - Mate in Four Moves, White to Play
+    Chess Puzzle #222 - Checkmate in 6 Moves, White to Play | Mihail Tal, Dragoljub Velimirovic
+    Chess Puzzle #223 - Mate in Two Moves, White to Play
+    Chess Puzzle #224 - Checkmate in One, White to Play
+    Chess Puzzle #225 - Mate in Five Moves, Black to Play
+    Chess Puzzle #226 - Mate in Four Moves, White to Play
+    Chess Puzzle #227 - Checkmate in Three, White to Play
+    Chess Puzzle #228 - Find the Best Move, Black to Play
+    Chess Puzzle #229 - Mate in Five Moves, Black to Play
+    Chess Puzzle #230 - Mate in Four Moves, Black to Play
+    Chess Puzzle #231 - Checkmate in One move, White to Play
+    Chess Puzzle #232 - Checkmate in Three, White to Play
+    Chess Puzzle #233 - Find the Best Move for White, Force a Stalemate
+    Chess Puzzle #234 - Mate in Four Moves, Black to Play
+    Chess Puzzle #235 - Checkmate in Five Moves, White to Play
+    Chess Puzzle #236 - Black to Play and Win, Find the Best Move
+    Chess Puzzle #237 - Checkmate in Three Moves, White to Play
+    Chess Puzzle #238 - Mate in 1 Move, White to Play
+    Chess Puzzle #239 - Checkmate in Two Moves, Black to Play
+    Chess Puzzle #240 - Checkmate in 4 Moves, White to Play
+    Chess Puzzle #241 - Checkmate in Five Moves, Black to Play
+    Chess Puzzle #242 - White to Play and Win, Find the Best Move
+    Chess Puzzle #243 - Mate in Three Moves, White to Play
+    Chess Puzzle #244 - Mate in Six Moves, Black to Play
+    Chess Puzzle #245 - Mate in Two Moves, White to Play
+    Chess Puzzle #246 - Mate in Four Moves, White to Play
+    Chess Puzzle #247 - Mate in 3 Moves, White to Play
+    Chess Puzzle #248 - Mate in 1 Move, White to Play
+    Chess Puzzle #249 - Mate in Six Moves, Black to Play
+    Chess Puzzle #250 - Mate in Two Moves, White to Play
+    Chess Puzzle #251 - Find Checkmate in 4 Moves, White to Play
+    Chess Puzzle #252 - Mate in Three Moves, White to Play | Paul Morphy – J.Thompson New York 1859
+    Chess Puzzle #253 - Checkmate in Five Moves, White to Play
+    Chess Puzzle #254 - How Can White Checkmate in Three Moves?
+    Chess Puzzle #255 - White can force checkmate in 4 moves. Can you see how?
+    Chess Puzzle #256 - White to play and Mate in No More than Six Moves
+    Chess Puzzle #257 - How White Can Take the Advantage of His Passed h-pawn
+    Chess Puzzle #258 - Checkmate in Three Moves, White to Play
+    Chess Puzzle #259 - Checkmate in Seven Moves, White to Play
+    Chess Puzzle #260 - How does White deliver mate in four Moves?
+    Chess Puzzle #261 - White has a powerful move, which wins a piece, Can you spot it?
+    Chess Puzzle #262 - How Can White Mate in Three Moves?
+    Chess Puzzle #263 - Checkmate in Six Moves, White to Play
+    Chess Puzzle #264 - How Can White Force Checkmate in Four Moves?
+    Chess Puzzle #265 - White to Move and Win a Piece, Find the Best Move
+    Chess Puzzle #266 - Checkmate in Three Moves, White to Play
+    Chess Puzzle #267 - What is the Best Move? White to Play
+    Chess Puzzle #268 - White to Play and Force Mate in Two Moves
+    Chess Puzzle #269 - White to Play and Checkmate in One Move
+    Chess Puzzle #270 - Mate in Three Moves, Black to Play
+    Chess Puzzle #271 - How White Can Force Checkmate in Five Moves?
+    Chess Puzzle #272 - Black to Play and Win, Checkmate in Two Moves
+    Chess Puzzle #273 - White to Play and win, Checkmate in Six Moves
+    Chess Puzzle #274 - What is the Best Move to Achieve Victory, White to Play
+    Chess Puzzle #275 - Mate in Three Moves, Black to Play
+    Chess Puzzle #276 - Checkmate in 2 Moves, White to Play
+    Chess Puzzle #277 - Checkmate in 4 Moves, White to Play
+    Chess Puzzle #278 - White to Play, What is the best move
+    Chess Puzzle #279 - How can White force checkmate from this position?
+    Chess Puzzle #280 - Checkmate in One Move, White to Play
+    Chess Puzzle #281 - Checkmate in Three Moves, White to Play
+    Chess Puzzle #282 - Checkmate in Four Moves, Black to Play
+    Chess Puzzle #283 - Checkmate in 5, White to Play
+    Chess Puzzle #284 - What is White’s best move in this position?
+    Chess Puzzle #285 - Mate in Three Moves, Black to Play
+    Chess Puzzle #286 - Checkmate in Two Moves, White to Play
+    Chess Puzzle #287 - Mate in 5 Moves, White to Play
+    Chess Puzzle #288 - Mate in Four Moves, White to Play
+    Chess Puzzle #289 - Mate in Three Moves, White to Play
+    Chess Puzzle #290 - What is the Best Move? White to Play
+    Chess Puzzle #291 - White can deliver checkmate in three moves Can you see how?
+    Chess Puzzle #292 - Checkmate in Five Moves, Black to Play
+    Chess Puzzle #293 - What is White’s best move to escape with a draw?
+    Chess Puzzle #294 - Mate in 5 Moves, White to Play
+    Chess Puzzle #295 - What is White’s best move to escape with a draw?
+    Chess Puzzle #296 - It is White who has the move, Mate in Three
+    Chess Puzzle #297 - Mate in 2 Moves, Black to Play
+    Chess Puzzle #298 - What is the Best Move Which Wins a Piece?
+    Chess Puzzle #299 - Mate in Four Moves, White to Play
+    Chess Puzzle #300 - What is the Best Move which Wins the Game
+    Chess Puzzle #301 - White Can Deliver Checkmate in Two Moves Can You See How?
+    Chess Puzzle #302 - Mate in Five Moves, Black to Play
+    Chess Puzzle #303 - Can You Find the Winning Move to This Puzzle?
+    Chess Puzzle #304 - In this Position White Can Force Checkmate in Four Moves
+    Chess Puzzle #305 - Mate in Three Moves, White to Play
+    Chess Puzzle #306 - What is the Best Continuation? White to Play
+    Chess Puzzle #307 - Checkmate in Five Moves, White to Play
+    Chess Puzzle #308 - White to Play and Win, What is the best move
+    Chess Puzzle #309 - Checkmate in Three, White to Play
+    Chess Puzzle #310 - Checkmate in Two Moves, Can you see how
+    Chess Puzzle #311 - What is the Best Continuation to this Puzzle? White to Play
+    Chess Puzzle #312 - Black has a forced mate in three moves
+    Chess Puzzle #313 - Checkmate in 5 Moves, White to Play
+    Chess Puzzle #314 - What is White’s quickest way to force checkmate
+    Chess Puzzle #315 - White to Play and Win, What is the Best Continuation?
+    Chess Puzzle #316 - Checkmate in Three, White to Play
+    Chess Puzzle #317 - Checkmate in Six, White to Play
+    Chess Puzzle #318 - Checkmate in Five, White to Play
+    Chess Puzzle #319 - What is the best move? Black to Play and Win
+    Chess Puzzle #320 - Mate in 7 Moves, Black to Play
+    Chess Puzzle #321 - Black to Play, What is the key move to achieve victory
+    Chess Puzzle #322 - What’s the Best Way to Conclude the Attack
+    Chess Puzzle #323 - Mate in Three, White to Play
+    Chess Puzzle #324 - Checkmate in Two, White to Play
+    Chess Puzzle #325 - Black has a dangerous passed pawn. But White can draw this ending, How?
+    Chess Puzzle #326 - Mate in Four, Black to Play
+    Chess Puzzle #327 - What should White play? Find the best Defense
+    Chess Puzzle #328 - It’s White to play and Checkmate in Three
+    Chess Puzzle #329 - Black can Win this game, How?
+    Chess Puzzle #330 - Mate in Two, Black to Play
+    Chess Puzzle #331 - Black has a Forced mate in six moves
+    Chess Puzzle #332 - White to Play and Win Material, How?
+    Chess Puzzle #333 - White has a winning continuation, What is it?
+    Chess Puzzle #334 - Mate in 7 Moves, Black to Play
+    Chess Puzzle #335 - Mate in Two Moves, White to Play
+    Chess Puzzle #336 - White to Play and Win, No More than Six Moves
+    Chess Puzzle #337 - Black to Play, Find the Decisive Combination to this Puzzle
+    Chess Puzzle #338 - How does White Manage to Escape with a Draw?
+    Chess Puzzle #339 - Mate Three moves, White to Play
+    Chess Puzzle #340 - White to Play and Win, Anatoly Karpov – Veselin Topalov 1994
+    Chess Puzzle #341 - Mate in 4 Moves, Black to Play
+    Chess Puzzle #342 - White has a Forced Mate in Seven Moves
+    Chess Puzzle #343 - It’s White to play and Checkmate in 5
+    Chess Puzzle #344 - White to Play, What is the Best continuation?
+    Chess Puzzle #345 - Can you see how White can Win?
+    Chess Puzzle #346 - White to Play, Mate in Three Moves
+    Chess Puzzle #347 - Mate in 4 Moves, White to Play
+    Chess Puzzle #348 - White to play and Win, What Should be the Next Move?
+    Chess Puzzle #349 - What should White play? Mate in Three
+    Chess Puzzle #350 - How can White Force Checkmate from this position?
+    Chess Puzzle #351 - White can draw this ending, How?
+    Chess Puzzle #352 - Checkmate in Three, White to Play
+    Chess Puzzle #353 - Mate in 2 Moves, White to Play
+    Chess Puzzle #354 - Mate in Three Moves, Black to Play
+    Chess Puzzle #355 - Mate in One Moves, Black to Play
+    Chess Puzzle #356 - Black to Play, What is the Best Move?
+    Chess Puzzle #357 - Mate in 7 Moves, White to Play
+    Chess Puzzle #358 - White has a winning continuation, What is it?
+    Chess Puzzle #359 - White to Play and Win, What is the Best Continuation?
+    Chess Puzzle #360 - Mate in Three Moves, White to Play
+    Chess Puzzle #361 - Find the best defense that wins the game | Bobby Fischer vs Sherwin
+    Chess Puzzle #362 - Mate in 4 Moves, White to Play
+    Chess Puzzle #363 - White to Play and Win Material, How?
+    Chess Puzzle #364 - It’s White to play and checkmate in Three
+    Chess Puzzle #365 - Mate in Two Moves, Black to Play
+    Chess Puzzle #366 - Black has an Outside Passed Pawn, Can White Still Save the Game?
+    Chess Puzzle #367 - Mate in Five Moves, Black to Play
+    Chess Puzzle #368 - It’s White to play and checkmate in Two
+    Chess Puzzle #369 - How Should Black Conclude the Attack? Mate in 4 Moves
+    Chess Puzzle #370 - What is the move that wins White’s Queen
+    Chess Puzzle #371 - Find the move that wins black’s Rook on C7
+    Chess Puzzle #372 - Mate in Three Moves, White to Play
+    Chess Puzzle #373 - Black to Play, How does Black obtain an advantage?
+    Chess Puzzle #374 - White to Play, What is the Key Move to Achieve Victory in Two Moves?
+    Chess Puzzle #375 - White can win quickly, Can you see how?
+    Chess Puzzle #376 - White has a winning continuation to this ending, What is it?
+    Chess Puzzle #377 - What is White’s Quickest way to Force Checkmate
+    Chess Puzzle #378 - Black has a continuation that wins the game in no more than Four Moves
+    Chess Puzzle #379 - It is White to Play and Checkmate in Five
+    Chess Puzzle #380 - Black to Move, Find the decisive combination to this puzzle
+    Chess Puzzle #381 - White to Play and Win the Game in Two Moves
+    Chess Puzzle #382 - What is the quickest way to win, White to Play
+    Chess Puzzle #383 - Find the Decisive Combination to This Puzzle
+    Chess Puzzle #384 - White to Play and Win Material, How?
+    Chess Puzzle #385 - Find the Winning combination to this puzzle, White to Play
+    Chess Puzzle #386 - What is the key move? White to Play and Win, no more than three moves
+    Chess Puzzle #387 - Mate in Two Moves, Black to Play
+    Chess Puzzle #388 - Mate in 6 Moves, White to Play
+    Chess Puzzle #389 - Checkmate in Four Moves, White to Play
+    Chess Puzzle #390 - White to Play, What is the quickest way to Win?
+    Chess Puzzle #391 - Find the One of Mate in One Move
+    Chess Puzzle #392 - How should White Finish this game in no more than four moves?
+    Chess Puzzle #393 - Black has more pieces, White has one Chance. Mate in Six Moves
+    Chess Puzzle #394 - How White Take Advantage of His Extra Pawn on B3
+    Chess Puzzle #395 - Can you see how white can win? Checkmate in Three Moves
+    Chess Puzzle #396 - Black pawns have a clear path forward, What should white do?
+    Chess Puzzle #397 - What is White’s quickest way to force checkmate
+    Chess Puzzle #398 - How Should White Respond to Rg1 Check?
+    Chess Puzzle #399 - Traps the black queen at F6
+    Chess Puzzle #400 - Black queen guards the b file, What is the best plan for White?
+    Chess Puzzle #401 - White can take big material advantage, Can you see How?
+    Chess Puzzle #402 - What is the quickest way for Black to Win?
+    Chess Puzzle #403 - Black’s position is weak and there are several winning moves for White
+    Chess Puzzle #404 - White to Play, Which move did Emanuel Lasker played next?
+    Chess Puzzle #405 - Calculate the winning combination to this puzzle
+    Chess Puzzle #406 - White to Play, Can you find a Checkmate in Three?
+    Chess Puzzle #407 - How can Black Regain Material?
+    Chess Puzzle #408 - There are several winning move for white, But what is the quickest?
+    Chess Puzzle #409 - Checkmate in Three, White to Move
+    Chess Puzzle #410 - What is the Best Defense Against the Qh5 Check?
+    Chess Puzzle #411 - What is White’s Response to the Threat of Queen G1 Checkmate?
+    Chess Puzzle #412 - There Are a Couple of Mate in 3 Solutions, but Only One Mate in 2
+    Chess Puzzle #413 - How Should White Attack Black’s Weak Kingside?
+    Chess Puzzle #414 - Checkmate in 5, Black to Play | Sokolov vs Victor Bologan
+    Chess Puzzle #415 - Mate in Four Moves, White | Alexandr Fier Vs Vladislav Nevednichy
+    Chess Puzzle #416 - What Is the Best Way to Utilize the Advance Position of White Queen
+    Chess Puzzle #417 - Black Can Win Quickly, How?
+    Chess Puzzle #418 - Can you do the long calculation? Mate in 6 Moves
+    Chess Puzzle #419 - Can You See How White Can Win? Checkmate in Four Moves
+    Chess Puzzle #420 - White to Move, Promote the d6 Pawn
+    Chess Puzzle #421 - Black Has a Winning Move, Can You See It?
+    Chess Puzzle #422 - Can You Find the Only Winning Move? Black to Play
+    Chess Puzzle #423 - White Can Win a Rook and a Queen for a Queen, How?
+    Chess Puzzle #424 - White to Play, What Is the Move GM Henrique Mecking Played Next?
+    Chess Puzzle #425 - White to Play, What Is the Key Move to Achieve Victory in Three Moves
+    Chess Puzzle #426 - White to Play and Win, How GM Carsten Høi Finished the Game
+    Chess Puzzle #427 - What is the Best Move for Black | Napoleon Marache vs Paul Morphy
+    Chess Puzzle #428 - It’s White to Play and Checkmate in Two
+    Chess Puzzle #429 - Black is Threatening Qxg2 Checkmate, What Should White Play?
+    Chess Puzzle #430 - White Must Promote His Passed B-Pawn, How?
+    Chess Puzzle #431 - How Can White Force Checkmate From This Position?
+    Chess Puzzle #432 - Checkmate After a Double-Check, White to Play
+    Chess Puzzle #433 - IM Boris Katalymov Playing White Has a Powerful Move Here, Can You Spot It?
+    Chess Puzzle #434 - GM Evgeny Sveshnikov Playing White Can Deliver Checkmate in 3
+    Chess Puzzle #435 - White to Play, Find the Combination Which Wins the Game in Two Moves
+    Chess Puzzle #436 - What Is White’s Quickest Way to Force Checkmate?
+    Chess Puzzle #437 - White Has a Strong Move That Wins a Piece, Can You Spot It?
+    Chess Puzzle #438 - Grandmaster Abdullah Al Rakib Playing Black Has a Mate in 4 Moves
+    Chess Puzzle #439 - Black Has a Winning Continuation, What Is It?
+    Chess Puzzle #440 - White to Play, Mate in One Move
+    Chess Puzzle #441 - Black Has a Powerful Move To Win the White Queen and Rook
+    Chess Puzzle #442 - Black Resigned After White’s (Sergei Tiviakov) Next Move, What Is It?
+    Chess Puzzle #443 - White Can Deliver Checkmate in Two Moves, Can You See How?
+    Chess Puzzle #444 - White Wins the Exchange, Queen and a Bishop for Queen and a Pawn, How?
+    Chess Puzzle #445 - White Can Capture the Black’s C8 Bishop, How?
+    Chess Puzzle #446 - A Tactic From Grandmaster Pal Benko, How White Gets a Decisive Material Advantage?
+    Chess Puzzle #447 - White To Get a Decisive Material Advantage in the Next Move
+    Chess Puzzle #448 - Grandmaster Alexander Grischuk (White) Has a Chekmate in Three
+    Chess Puzzle #449 - Whtie Can Win an Important Piece With a Discovery Attack
+    Chess Puzzle #450 - Black Has a Strong Attack That Wins Material and the Game
+    Chess Puzzle #451 - Black Can Take Both White Rook and Queen in the Second Rank, How?
+    Chess Puzzle #452 - After White R4C3 GM Robert Zelcic (Black) Has a Forced Mate
+    Chess Puzzle #453 - Black Can Capture One of White’s Bishop, How?
+
+
