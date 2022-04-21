@@ -46,12 +46,13 @@ cap = cv2.VideoCapture(0)
 cap.set(3, 640)
 cap.set(4, 480)
 cap.set(cv2.CAP_PROP_FPS, 30.0)
-cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc('M', 'J', 'P', 'G'))
+# cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc('M', 'J', 'P', 'G'))
 cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)
 cap.set(cv2.CAP_PROP_AUTO_WB, 0)
 cap.set(cv2.CAP_PROP_FOCUS, 2)
 # vdo_length = int(cap. get(cv2. CAP_PROP_FRAME_COUNT))
-ort_sess = ort.InferenceSession('/media/teera/ROGESD/model/belief/chessboard_blender/net_epoch_30.onnx', providers=['TensorrtExecutionProvider', 'CUDAExecutionProvider'])  # TensorrtExecutionProvider having the higher priority.
+model_path = '/media/teera/ROGESD/model/belief/chessboard_mono_6_stage/net_epoch_51.onnx'
+ort_sess = ort.InferenceSession(model_path, providers=['TensorrtExecutionProvider', 'CUDAExecutionProvider'])  # TensorrtExecutionProvider having the higher priority.
 
 # for f in range(vdo_length):
 while True:
@@ -73,19 +74,22 @@ while True:
     x = np.float32(x)
     x /= 255
     x = np.expand_dims(x, 0)
-    outputs = ort_sess.run(None, {'input': x})
+    outputs = ort_sess.run(None, {'input': x})  # outputs.shape = (1, 4, 60, 80)
+    outputs = outputs[0][0]
+    overlay = np.zeros(outputs[0].shape, dtype=np.float32)
     for i in range(4):
-        overlay = imutils.resize(outputs[0][0][i], height=480)
-        overlay = cv2.cvtColor(overlay, cv2.COLOR_GRAY2BGR)
-        overlay = np.array(overlay*255, dtype=np.uint8)
-        canvas = cv2.addWeighted(image, 0.5, overlay, 0.5, 0)
-        cv2.imshow("Belief" + str(i), canvas)
+        overlay += outputs[0][0][i]
+    overlay = cv2.cvtColor(overlay, cv2.COLOR_GRAY2BGR)
+    overlay = np.array(overlay*255, dtype=np.uint8)
+    overlay = imutils.resize(overlay, height=image.shape[0])
+    canvas = cv2.addWeighted(image, 0.3, overlay, 0.7, 0)
+    cv2.imshow("Belief", canvas)
 
     canvas = image.copy()
     # points, vals = FindMax(outputs[0][0])
     # for i in range(len(points)): cv2.circle(canvas, (points[i][0]*8, points[i][1]*8), 3, (255, 0, 0), -1)
-    points, vals = FindMax(outputs[0][0])
-    print(vals)
+    points, vals = FindMax(outputs)
+    # print(vals)
     confidences = [False if val < 0.05 else True for val in vals]
     for i in range(4):
         cv2.circle(canvas, (points[i][0] * 8, points[i][1] * 8), 3, (255, 0, 0), -1)
@@ -128,7 +132,7 @@ while True:
                            rvec=rvec,
                            tvec=tvec,
                            length=0.1)
-    print(int(1/(time.time() - stamp)))
+    print("FPS: %d"%(int(1/(time.time() - stamp))))
     cv2.imshow('A', canvas)
     key = cv2.waitKey(1)
     if key == ord('q'): break
