@@ -9,3 +9,5 @@ tqdm
 pyrr
 Pillow
 PyYAML
+imutils
+torchsummary

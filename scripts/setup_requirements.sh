@@ -22,9 +22,10 @@ pip install imutils opencv-contrib-python
 
 conda create -n dope python=3.8.10
 ### RTX 30xx will error with CUDA 10.x -> Use 11.x instead ###
-## CUDA 11.1 (LTS) ##
-conda install pytorch torchvision cudatoolkit=11.1 -c pytorch-lts -c nvidia
 ## CUDA 11.3 (Stable) ##
-conda install pytorch torchvision cudatoolkit=11.3 -c pytorch
+conda install pytorch torchvision torchaudio cudatoolkit=11.3 -c pytorch
 ## PIP install ##
 pip install -r requirements.txt
+
+## Upgrade torchvision to 0.11
+pip install --upgrade torchvision
