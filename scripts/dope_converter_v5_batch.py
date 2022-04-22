@@ -46,12 +46,10 @@ class DopeNetwork(nn.Module):
         else:
             print("Training network pretrained on imagenet.")
 
-        print(torchvision.__version__)
         # vgg_full = models.vgg19(pretrained=pretrained).features
         # mobilenetV2_full = models.mobilenet_v2(pretrained=True).features
         efficientnet_b2 = models.efficientnet_b2(pretrained=True).features
-        print(efficientnet_b2)
-        exit(0)
+        # print(efficientnet_b2)
         # print(mobilenetV2_full)
         # print(vgg_full)
         # self.vgg = nn.Sequential()
@@ -213,6 +211,6 @@ def convert(pth_file):
 
 
 if __name__ == '__main__':
-    pth_list = glob.glob("/media/teera/ROGESD/model/belief/chessboard_mono_6_stage_lr_0.00003/*.pth")
+    pth_list = glob.glob("/media/teera/SSD250GB/model/belief/chessboard_mono_6_stage_efficientB2/*.pth")
     for pth_file in pth_list:
         convert(pth_file)
