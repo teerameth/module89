@@ -2,7 +2,8 @@ import chess.engine
 import numpy as np
 from tqdm import tqdm
 
-engine = chess.engine.SimpleEngine.popen_uci("stopfish")
+engine = chess.engine.SimpleEngine.popen_uci("stopfish")    # available options: Debug Log File, Threads, Hash, Clear Hash, Ponder, MultiPV, Skill Level, Move Overhead, Slow Mover, nodestime, UCI_Chess960, UCI_AnalyseMode, UCI_LimitStrength, UCI_Elo, UCI_ShowWDL, SyzygyPath, SyzygyProbeDepth, Syzygy50MoveRule, SyzygyProbeLimit, Use NNUE, EvalFile
+engine.configure({"Threads": 12})
 
 fen_set = np.load("fen_set.npy")
 move_list_set = np.load("move_list_set.npy", allow_pickle=True)
@@ -24,7 +25,8 @@ for i in tqdm(range(len(fen_set))):
     failed = False
     for step in range(len(move_list)):
         if step%2==1: # My turn
-            result = engine.play(board, chess.engine.Limit(time=3))
+            limit = chess.engine.Limit(time=3)
+            result = engine.play(board, limit)
             board.push(result.move)
             # print(board)
             if board.fen() != move_list[step]: failed = True
