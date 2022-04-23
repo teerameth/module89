@@ -33,6 +33,7 @@ ament_auto_find_build_dependencies()
 ## msg file for service-client ##
 rosidl_generate_interfaces(${PROJECT_NAME}
   msg/ChessboardImgPose.msg
+  srv/FindBestMove.srv
   # "srv/ChessboardDetection.srv"
   # "srv/ChessboardPose.srv"
   # "srv/AddThreeInts.srv"
@@ -69,11 +70,14 @@ ament_python_install_package(${PROJECT_NAME})
 install(PROGRAMS
   scripts/camera.py
   scripts/camera_fake.py
+  scripts/camera_sim.py
   scripts/chessboard_tracker.py
   scripts/chessboard_detector.py
   scripts/chessboard_locator_dope.py
   scripts/chessboard_classifier.py
   scripts/chessboard_encoder_fake.py
+  scripts/chess_engine.py
+  scripts/chess_client.py
   scripts/geometry.py
   scripts/transform.py
   scripts/example_client.py

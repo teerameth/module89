@@ -1,0 +1,3 @@
+std_msgs/String fen
+---
+std_msgs/String bestmove
