@@ -7,7 +7,8 @@ import cv2
 import math
 from transform import order_points, poly2view_angle
 from tqdm import tqdm
-
+import os
+os.environ["CUDA_VISIBLE_DEVICES"]="1"
 chess_piece_height = {"king": (0.081, 0.097), "queen": (0.07, 0.0762), "bishop": (0.058, 0.065), "knight": (0.054, 0.05715), "rook": (0.02845, 0.048), "pawn": (0.043, 0.045)}
 chess_piece_diameter = {"king": (0.028, 0.0381), "queen": (0.028, 0.0362), "bishop": (0.026, 0.032), "knight": (0.026, 0.03255), "rook": (0.026, 0.03255), "pawn": (0.0191, 0.02825)}
 mask_contour_index_list = [[0, 1, 2, 3], [4, 5, 6, 7], [0, 1, 5, 4], [1, 2, 6, 5], [2, 3, 7, 6], [3, 0, 4, 7]]
@@ -170,7 +171,7 @@ output_path = dataset_config['capture_path']
 file_list = sorted(glob.glob(os.path.join(output_path, '*.tfrecords')))
 fen_list = sorted(glob.glob(os.path.join(output_path, '*.txt')))
 
-model = tf.keras.models.load_model('/media/teera/ROGESD/model/classification/chess/EfficientNetB0_piece/model.h5')
+model = tf.keras.models.load_model('/media/teera/SSD250GB/model/classification/chess/EfficientNetB0_piece/model.h5')
 model.summary()
 
 all_count = 0
@@ -209,7 +210,7 @@ for i in range(len(file_list)):
             Y = np.array(model.predict(np.array(CNNinputs_padded_non_empty)))
             Y = np.argmax(Y, axis=1)    # Use class with max score
             # Remap back to chessboard
-            board_result = np.zeros((8, 8))
+            board_result = np.zeros((8, 8), dtype=np.uint8)
             correctness = []
             for i in range(len(tile_index_non_empty)):
                 index = tile_index_non_empty[i]
@@ -220,22 +221,25 @@ for i in range(len(file_list)):
             if False not in correctness: true_count += 1
             all_count += 1
 
-            # vertical_images = []
-            # for x in range(8):
-            #     image_list_vertical = []
-            #     for y in range(8):
-            #         canvas = resize_and_pad(CNNinputs_padded[8 * y + x].copy(), size=100)
-            #         # cv2.putText(canvas, str(round(angle_list[8 * y + x])), (10, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color=(0, 0, 255))
-            #         label = board[y][x]
-            #         if label != 0:
-            #             cv2.putText(canvas, labels[label - 1], (10, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
-            #                         color=(0, 0, 255))
-            #         image_list_vertical.append(
-            #             cv2.copyMakeBorder(canvas, 1, 1, 1, 1, cv2.BORDER_CONSTANT, None, (0, 255, 0)))
-            #     vertical_images.append(np.vstack(image_list_vertical))
-            # combined_images = np.hstack(vertical_images)
-            # cv2.imshow("All CNN inputs", combined_images)
-            # key = cv2.waitKey(0)
-            # if key == ord('n'): break
+            vertical_images = []
+            for x in range(8):
+                image_list_vertical = []
+                for y in range(8):
+                    canvas = resize_and_pad(CNNinputs_padded[8 * y + x].copy(), size=100)
+                    # cv2.putText(canvas, str(round(angle_list[8 * y + x])), (10, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color=(0, 0, 255))
+                    label = board[y][x]
+                    predicted = board_result[y][x]
+                    if label != 0:
+                        if labels[label - 1] == labels[predicted - 1]: color = (0, 255, 0)
+                        else: color = (0, 0, 255)
+                        cv2.putText(canvas, labels[label - 1], (10, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color=color)
+                        cv2.putText(canvas, labels[predicted - 1], (80, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color=color)
+                    image_list_vertical.append(
+                        cv2.copyMakeBorder(canvas, 1, 1, 1, 1, cv2.BORDER_CONSTANT, None, (0, 255, 0)))
+                vertical_images.append(np.vstack(image_list_vertical))
+            combined_images = np.hstack(vertical_images)
+            cv2.imshow("All CNN inputs", combined_images)
+            key = cv2.waitKey(1)
+            if key == ord('n'): break
         print(all_count, true_count)
         print(true_count/all_count)
