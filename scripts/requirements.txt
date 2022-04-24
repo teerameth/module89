@@ -12,3 +12,5 @@ PyYAML
 imutils
 torchsummary
 mediapipe
+onnx
+onnxruntime-gpu
