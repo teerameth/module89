@@ -183,9 +183,9 @@ class ChessboardClassifier(Node):
         self.top_filter = True
         self.side_filter = True
         self.color_filter = True
-        self.top_filter_length = 3
-        self.side_filter_length = 3
-        self.color_filter_length = 3
+        self.top_filter_length = 10
+        self.side_filter_length = 10
+        self.color_filter_length = 10
 
         self.clustering = None
         self.clustering_mode = 0
@@ -246,7 +246,7 @@ class ChessboardClassifier(Node):
         except: pass
 
         cv2.imshow("Top", frame)
-        cv2.waitKey(1)
+        # cv2.waitKey(1)
     def chessboard_pose_side_callback(self, img_pose):
         frame = self.bridge.imgmsg_to_cv2(img_pose.image, desired_encoding='passthrough')
         # self.get_logger().info(str(get_tile(img_pose)))

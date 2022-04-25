@@ -97,7 +97,7 @@ class CameraPublisherSim(Node):
         for file in raw_file_list: # select only file with numeric name (raw vdo)
             if os.path.basename(file)[0].isnumeric(): self.file_list.append(file)
         print(self.file_list)
-        for i in random.choices(range(len(self.file_list)-1), k=10):
+        for i in random.choices(range(len(self.file_list)-1), k=2):
         # for i in [len(self.file_list) - 1]:
             file_path = self.file_list[i]
             dataset = tf.data.TFRecordDataset(file_path)

@@ -78,7 +78,7 @@ while True:
     outputs = outputs[0][0]
     overlay = np.zeros(outputs[0].shape, dtype=np.float32)
     for i in range(4):
-        overlay += outputs[0][0][i]
+        overlay += outputs[i]
     overlay = cv2.cvtColor(overlay, cv2.COLOR_GRAY2BGR)
     overlay = np.array(overlay*255, dtype=np.uint8)
     overlay = imutils.resize(overlay, height=image.shape[0])
@@ -90,7 +90,7 @@ while True:
     # for i in range(len(points)): cv2.circle(canvas, (points[i][0]*8, points[i][1]*8), 3, (255, 0, 0), -1)
     points, vals = FindMax(outputs)
     # print(vals)
-    confidences = [False if val < 0.05 else True for val in vals]
+    confidences = [False if val < 0.03 else True for val in vals]
     for i in range(4):
         cv2.circle(canvas, (points[i][0] * 8, points[i][1] * 8), 3, (255, 0, 0), -1)
         # if confidences[i] is True:
