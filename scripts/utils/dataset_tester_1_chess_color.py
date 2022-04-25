@@ -4,11 +4,12 @@ import json
 import numpy as np
 import tensorflow as tf
 import cv2
+from sklearn.cluster import KMeans
+from matplotlib import pyplot as plt
 import math
 from transform import order_points, poly2view_angle
 from tqdm import tqdm
-import os
-os.environ["CUDA_VISIBLE_DEVICES"]="1"
+
 chess_piece_height = {"king": (0.081, 0.097), "queen": (0.07, 0.0762), "bishop": (0.058, 0.065), "knight": (0.054, 0.05715), "rook": (0.02845, 0.048), "pawn": (0.043, 0.045)}
 chess_piece_diameter = {"king": (0.028, 0.0381), "queen": (0.028, 0.0362), "bishop": (0.026, 0.032), "knight": (0.026, 0.03255), "rook": (0.026, 0.03255), "pawn": (0.0191, 0.02825)}
 mask_contour_index_list = [[0, 1, 2, 3], [4, 5, 6, 7], [0, 1, 5, 4], [1, 2, 6, 5], [2, 3, 7, 6], [3, 0, 4, 7]]
@@ -100,7 +101,7 @@ def get_tile(img, rvec, tvec):
     for i in range(64):
         CNNinput_padded = resize_and_pad(CNNinputs[i], size=export_size)
         CNNinputs_padded.append(CNNinput_padded)
-    return np.array(CNNinputs_padded, dtype=np.uint8), angle_list
+    return CNNinputs_padded, angle_list
 
 
 # Converting the values into features
@@ -166,15 +167,29 @@ def pose2view_angle(rvec, tvec):
     angle_rad = math.asin((math.sqrt(tile_x ** 2 + tile_y ** 2)) / (math.sqrt(tile_x ** 2 + tile_y ** 2 + tile_z ** 2)))
     return angle_rad
 
+def getPerspective(img, rvec, tvec, cameraMatrix, dist, size = 400):
+    corner_points = np.array([[-0.2, 0.2, 0], [-0.2, -0.2, 0], [0.2, -0.2, 0], [0.2, 0.2, 0]], dtype=np.float32)
+    imgpts, jac = cv2.projectPoints(corner_points, rvec, tvec, cameraMatrix, dist)
+    output_pts = np.float32([[0, 0],
+                             [0, size - 1],
+                             [size - 1, size - 1],
+                             [size - 1, 0]])
+    M = cv2.getPerspectiveTransform(imgpts, output_pts)
+    return cv2.warpPerspective(img, M, (size, size), flags=cv2.INTER_LINEAR)
+
 dataset_config = json.load(open(os.path.join('../../config/dataset_config.json')))
 output_path = dataset_config['capture_path']
 file_list = sorted(glob.glob(os.path.join(output_path, '*.tfrecords')))
 fen_list = sorted(glob.glob(os.path.join(output_path, '*.txt')))
 
 model_config = json.load(open(os.path.join('../../config/model_config.json')))
-model_path = os.path.join(model_config['base_path'], model_config['side_classifier'])
+model_path = os.path.join(model_config['base_path'], model_config['top_classifier'])
 model = tf.keras.models.load_model(model_path)
 model.summary()
+
+color_model_path = os.path.join(model_config['base_path'], model_config['color_classifier'])
+color_model = tf.keras.models.load_model(color_model_path)
+color_model.summary()
 
 all_count = 0
 true_count = 0
@@ -203,25 +218,75 @@ for i in range(len(file_list)):
 
             angle = pose2view_angle(rvec, tvec) # get view angle (radian)
             # divide 2 camera view [top <0.05, side >0.3]
-            if angle < 0.2: continue    # skip top view
+            if angle > 0.2: continue    # skip side view
+            ## Predict sequence ##
+            # for x in range(8):
+            #     for y in range(8):
+            #         label = board[y][x]
+            #         if label != 0: label = 1
+            #         tile_image = CNNinputs_padded[8 * y + x]
+            #         # canvas = tile_image.copy()
+            #         # cv2.putText(canvas, str(label), (10, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color=(0, 0, 255))
+            #         tile_image = tile_image.reshape((-1, 224, 224, 3))
+            #         y = model.predict(tile_image)[0][0]
+            #         y = 0 if y < 0 else 1
+            #         if y != label: fault_count += 1
+            #         all_count += 1
+            #         cv2.putText(canvas, str(y), (50, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color=(0, 0, 255))
+            #         cv2.imshow("tile", canvas)
+            #         cv2.waitKey(1)
+
+            # aaa = getPerspective(image, rvec, tvec, cameraMatrix, dist)
+            # cv2.imshow("AAAAAA", aaa)
+            # Z = aaa.reshape((-1, 3))
+            # Z = np.float32(Z)
+            # # convert to np.float32
+            # Z = np.float32(Z)
+            # # define criteria, number of clusters(K) and apply kmeans()
+            # criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0)
+            # K = 4
+            # ret, label, center = cv2.kmeans(Z, K, None, criteria, 10, cv2.KMEANS_RANDOM_CENTERS)
+            # # Now convert back into uint8, and make original image
+            # center = np.uint8(center)
+            # res = center[label.flatten()]
+            # res2 = res.reshape((aaa.shape))
+            # cv2.imshow("BBBBBB", res2)
+            # # cv2.waitKey(0)
+            # color = ('b', 'g', 'r')
+            # for i, col in enumerate(color):
+            #     histr = cv2.calcHist([image], [i], None, [256], [0, 256])
+            #     plt.plot(histr, color=col)
+            #     plt.xlim([0, 256])
+            # plt.show()
+
 
             ## Predict batch ##
-            # Classify only index which not empty
-            tile_index_non_empty = np.argwhere(board.reshape(-1) != 0).reshape(-1)
+            Y = model.predict(np.array(CNNinputs_padded).reshape((-1, 224, 224, 3)))
+            Y = np.array(Y).reshape((-1))
+            Y = np.where(Y < 0, 0, 1)
+            # Classify only index which not empty (extract color feature)
+            tile_index_non_empty = np.argwhere(Y != 0).reshape(-1)
             CNNinputs_padded_non_empty = np.array(CNNinputs_padded)[tile_index_non_empty]
-            Y = np.array(model.predict(np.array(CNNinputs_padded_non_empty)))
-            Y = np.argmax(Y, axis=1)    # Use class with max score
-            # Remap back to chessboard
-            board_result = np.zeros((8, 8), dtype=np.uint8)
-            correctness = []
-            for i in range(len(tile_index_non_empty)):
-                index = tile_index_non_empty[i]
-                ground_truth = board.reshape(-1)[index]
-                predicted = Y[i] + 1
-                board_result[int(index/8)][index%8] = predicted
-                correctness.append(ground_truth == predicted)
-            if False not in correctness: true_count += 1
+            Y_color = np.array(color_model.predict(np.array(CNNinputs_padded_non_empty)))
+
+            kmeans = KMeans(n_clusters=2, random_state=0).fit(Y_color)
+            print(kmeans.labels_)
+            canvas1, canvas2 = [], []
+            for j in range(len(kmeans.labels_)):
+                cluster_label = kmeans.labels_[j]
+                if cluster_label == 0: canvas1.append(CNNinputs_padded_non_empty[j])
+                elif cluster_label == 1: canvas2.append(CNNinputs_padded_non_empty[j])
+            while len(canvas1) < len(canvas2): canvas1.append(np.zeros_like(CNNinputs_padded_non_empty[j]))
+            while len(canvas2) < len(canvas1): canvas2.append(np.zeros_like(CNNinputs_padded_non_empty[j]))
+            canvas1 = cv2.hconcat(canvas1)
+            canvas2 = cv2.hconcat(canvas2)
+            canvas = cv2.vconcat([canvas1, canvas2])
+            cv2.imshow("ABC", canvas)
+
+            board = board.reshape(-1)
+            board = np.where(board > 0, 1, 0)    # convert fen classes to binary class
             all_count += 1
+            true_count += np.array_equal(board, Y)  # return True if all 64 tiles are correct
 
             vertical_images = []
             for x in range(8):
@@ -229,19 +294,17 @@ for i in range(len(file_list)):
                 for y in range(8):
                     canvas = resize_and_pad(CNNinputs_padded[8 * y + x].copy(), size=100)
                     # cv2.putText(canvas, str(round(angle_list[8 * y + x])), (10, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color=(0, 0, 255))
-                    label = board[y][x]
-                    predicted = board_result[y][x]
+                    label = board[y*8+x]
                     if label != 0:
-                        if labels[label - 1] == labels[predicted - 1]: color = (0, 255, 0)
-                        else: color = (0, 0, 255)
-                        cv2.putText(canvas, labels[label - 1], (10, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color=color)
-                        cv2.putText(canvas, labels[predicted - 1], (80, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color=color)
+                        cv2.putText(canvas, labels[label - 1], (10, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
+                                    color=(0, 0, 255))
                     image_list_vertical.append(
                         cv2.copyMakeBorder(canvas, 1, 1, 1, 1, cv2.BORDER_CONSTANT, None, (0, 255, 0)))
                 vertical_images.append(np.vstack(image_list_vertical))
             combined_images = np.hstack(vertical_images)
             cv2.imshow("All CNN inputs", combined_images)
-            key = cv2.waitKey(1)
+            key = cv2.waitKey(0)
             if key == ord('n'): break
+
         print(all_count, true_count)
         print(true_count/all_count)

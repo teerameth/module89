@@ -1,5 +1,7 @@
 {
-  "top_classifier":"/media/teera/ROGESD/model/classification/chess/MobileNetV2_binary/model.h5",
-  "side_classifier":"/media/teera/ROGESD/model/classification/chess/EfficientNetB0_piece/model.h5",
-  "dope":"/media/teera/ROGESD/model/dope/chessboard/net_epoch_120.onnx"
+  "base_path":"/media/teera/7378BCB242C83684/model",
+  "top_classifier":"classification/chess/MobileNetV2_binary/model.h5",
+  "side_classifier":"classification/chess/EfficientNetB0_piece/model.h5",
+  "color_classifier": "classification/chess/MobileNetV2_color/model.h5",
+  "dope":"dope/chessboard/net_epoch_120.onnx"
 }

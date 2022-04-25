@@ -181,7 +181,9 @@ output_path = dataset_config['capture_path']
 file_list = sorted(glob.glob(os.path.join(output_path, '*.tfrecords')))
 fen_list = sorted(glob.glob(os.path.join(output_path, '*.txt')))
 
-model = tf.keras.models.load_model('/media/teera/ROGESD/model/classification/chess/MobileNetV2_binary/model.h5')
+model_config = json.load(open(os.path.join('../../config/model_config.json')))
+model_path = os.path.join(model_config['base_path'], model_config['top_classifier'])
+model = tf.keras.models.load_model(model_path)
 model.summary()
 
 all_count = 0
