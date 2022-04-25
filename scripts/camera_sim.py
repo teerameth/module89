@@ -1,4 +1,6 @@
 #!/usr/bin/env /home/teera/.virtualenvs/cv/bin/python
+import random
+
 import rclpy
 from rclpy.node import Node
 from cv_bridge import CvBridge
@@ -85,30 +87,37 @@ class CameraPublisherSim(Node):
         self.camera_info_msg.d = self.cam_config["dist"]
 
         # Prepare *.tfrecord
-        output_path = self.data_config['capture_path']
-        self.file_list = sorted(glob.glob(os.path.join(output_path, '*.tfrecords')))
-        file_path = self.file_list[0]
-        dataset = tf.data.TFRecordDataset(file_path)
-        parsed_image_dataset = dataset.map(_parse_image_function)
         self.image_top_buffer = []
         self.image_side_buffer = []
         self.pose_top_buffer = []
         self.pose_side_buffer = []
-        for image_features in parsed_image_dataset:
-            # height = image_features['height'].numpy()
-            # width = image_features['width'].numpy()
-            # depth = image_features['depth'].numpy()
-            image = tf.io.decode_png(image_features['image'])  # Auto detect image shape when decoded
-            image = np.array(image, dtype=np.uint8)
-            rvec = image_features['rvec'].numpy()
-            tvec = image_features['tvec'].numpy()
-            angle = pose2view_angle(rvec, tvec)  # get view angle (radian)
-            if angle > 0.2: # side view
-                self.image_side_buffer.append(image)
-                self.pose_side_buffer.append((rvec, tvec))
-            else:           # top view
-                self.image_top_buffer.append(image)
-                self.pose_top_buffer.append((rvec, tvec))
+        output_path = self.data_config['capture_path']
+        raw_file_list = sorted(glob.glob(os.path.join(output_path, '*.tfrecords')))
+        self.file_list = []
+        for file in raw_file_list: # select only file with numeric name (raw vdo)
+            if os.path.basename(file)[0].isnumeric(): self.file_list.append(file)
+        print(self.file_list)
+        for i in random.choices(range(len(self.file_list)-1), k=10):
+        # for i in [len(self.file_list) - 1]:
+            file_path = self.file_list[i]
+            dataset = tf.data.TFRecordDataset(file_path)
+            parsed_image_dataset = dataset.map(_parse_image_function)
+
+            for image_features in parsed_image_dataset:
+                # height = image_features['height'].numpy()
+                # width = image_features['width'].numpy()
+                # depth = image_features['depth'].numpy()
+                image = tf.io.decode_png(image_features['image'])  # Auto detect image shape when decoded
+                image = np.array(image, dtype=np.uint8)
+                rvec = image_features['rvec'].numpy()
+                tvec = image_features['tvec'].numpy()
+                angle = pose2view_angle(rvec, tvec)  # get view angle (radian)
+                if angle > 0.2: # side view
+                    self.image_side_buffer.append(image)
+                    self.pose_side_buffer.append((rvec, tvec))
+                else:           # top view
+                    self.image_top_buffer.append(image)
+                    self.pose_top_buffer.append((rvec, tvec))
         self.side_frame_index, self.side_top_index = 0, 0
     def top_timer_callback(self):
         image = self.image_top_buffer[self.side_top_index]

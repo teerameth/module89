@@ -1,5 +1,5 @@
 #!/usr/bin/env /home/teera/.virtualenvs/cv/bin/python
-
+import imutils
 import rclpy
 from rclpy.node import Node
 from cv_bridge import CvBridge
@@ -8,6 +8,7 @@ from std_msgs.msg import Float32, String
 from ament_index_python.packages import get_package_share_directory
 from geometry_msgs.msg import Pose, Point, Quaternion
 from sensor_msgs.msg import CameraInfo, Image
+from sklearn.cluster import KMeans, AgglomerativeClustering, DBSCAN
 from module89.msg import ChessboardImgPose
 
 import cv2
@@ -151,6 +152,9 @@ def to_FEN(board):
         if empty != 0: FEN_string += str(empty)
         FEN_string += '/'
     return FEN_string[:-1]  # exclude lastest '/'
+
+clustering_mode = {0:''}
+
 class ChessboardClassifier(Node):
     def __init__(self):
         super().__init__('chessboard_classifier')
@@ -161,23 +165,30 @@ class ChessboardClassifier(Node):
 
         self.bridge = CvBridge()  # Bridge between "CV (NumPy array)" <-> "ROS sensor_msgs/Image"
 
-        self._valid = np.zeros((8, 8), dtype=np.uint8)
-        self._chess = np.zeros((8, 8), dtype=np.uint8)
-
-        self.top_model = tf.keras.models.load_model(model_config['top_classifier'])
-        self.side_model = tf.keras.models.load_model(model_config['side_classifier'])
+        # Load Neural Network model
+        self.top_model = tf.keras.models.load_model(os.path.join(model_config['base_path'], model_config['top_classifier']))
+        self.side_model = tf.keras.models.load_model(os.path.join(model_config['base_path'], model_config['side_classifier']))
+        self.color_model = tf.keras.models.load_model(os.path.join(model_config['base_path'], model_config['color_classifier']))
         self.top_model.summary()
         self.side_model.summary()
+        self.color_model.summary()
 
-        self.board_result_binary = np.zeros((8, 8))
-        self.board_result_binary_buffer = []   # store history of self.board_result_binary
-        self.board_result = np.zeros((8, 8))
-        self.board_result_buffer = []   # store history of self.board_result
+        self.board_result_binary = np.zeros((8, 8), dtype=np.uint8)
+        self.board_result_binary_buffer = []    # store history of self.board_result_binary
+        self.board_result = np.zeros((8, 8), dtype=np.uint8)
+        self.board_result_buffer = []           # store history of self.board_result
+        self.board_result_color = np.zeros((8, 8), dtype=np.uint8)
+        self.board_result_color_buffer = []     # store history of self.board_result_color
 
         self.top_filter = True
         self.side_filter = True
+        self.color_filter = True
         self.top_filter_length = 3
         self.side_filter_length = 3
+        self.color_filter_length = 3
+
+        self.clustering = None
+        self.clustering_mode = 0
     def chessboard_pose_top_callback(self, img_pose):
         frame = self.bridge.imgmsg_to_cv2(img_pose.image, desired_encoding='passthrough')
         # self.get_logger().info(str(get_tile(img_pose)))
@@ -185,6 +196,27 @@ class ChessboardClassifier(Node):
         Y = self.top_model.predict(np.array(CNNinputs_padded).reshape((-1, 224, 224, 3)))
         Y = np.array(Y).reshape((-1))
         Y = np.where(Y < 0, 0, 1)   # Interpreted prediction
+        # Classify only index which not empty (extract color feature)
+        tile_index_non_empty = np.argwhere(Y != 0).reshape(-1)
+        CNNinputs_padded_non_empty = np.array(CNNinputs_padded)[tile_index_non_empty]
+        Y_color = np.array(self.color_model.predict(np.array(CNNinputs_padded_non_empty)))
+
+        if self.clustering is None:
+            clustering = KMeans(n_clusters=2, random_state=0).fit(Y_color)
+            canvas1, canvas2 = [], []
+            for j in range(len(clustering.labels_)):
+                cluster_label = clustering.labels_[j]
+                if cluster_label == 0:
+                    canvas1.append(CNNinputs_padded_non_empty[j])
+                elif cluster_label == 1:
+                    canvas2.append(CNNinputs_padded_non_empty[j])
+            while len(canvas1) < len(canvas2): canvas1.append(np.zeros_like(CNNinputs_padded_non_empty[j]))
+            while len(canvas2) < len(canvas1): canvas2.append(np.zeros_like(CNNinputs_padded_non_empty[j]))
+            canvas1 = cv2.hconcat(canvas1)
+            canvas2 = cv2.hconcat(canvas2)
+            canvas = cv2.vconcat([canvas1, canvas2])
+            cv2.imshow("KMeans", imutils.resize(canvas, height=120))
+
         self.board_result_binary_buffer.append(Y.reshape((8, 8)))
         if len(self.board_result_binary_buffer) >= self.top_filter_length:  # fill buffer first
             for y in range(8):
@@ -197,21 +229,21 @@ class ChessboardClassifier(Node):
                 self.board_result_binary_buffer.pop(0)  # remove first element in buffer
         # self.get_logger().info(str(self.board_result_binary))
 
-        # try:
-        #     if True:
-        #         vertical_images = []
-        #         for x in range(8):
-        #             image_list_vertical = []
-        #             for y in range(7, -1, -1):
-        #                 canvas = resize_and_pad(CNNinputs_padded[8 * y + x].copy(), size=100)
-        #                 cv2.putText(canvas, str(round(angle_list[8 * y + x])), (10, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
-        #                             color=(0, 0, 255))
-        #                 image_list_vertical.append(
-        #                     cv2.copyMakeBorder(canvas, 1, 1, 1, 1, cv2.BORDER_CONSTANT, None, (0, 255, 0)))
-        #             vertical_images.append(np.vstack(image_list_vertical))
-        #         combined_images = np.hstack(vertical_images)
-        #         cv2.imshow("All CNN inputs", combined_images)
-        # except: pass
+        try:
+            if True:
+                vertical_images = []
+                for x in range(8):
+                    image_list_vertical = []
+                    for y in range(7, -1, -1):
+                        canvas = resize_and_pad(CNNinputs_padded[8 * y + x].copy(), size=100)
+                        cv2.putText(canvas, str(round(angle_list[8 * y + x])), (10, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
+                                    color=(0, 0, 255))
+                        image_list_vertical.append(
+                            cv2.copyMakeBorder(canvas, 1, 1, 1, 1, cv2.BORDER_CONSTANT, None, (0, 255, 0)))
+                    vertical_images.append(np.vstack(image_list_vertical))
+                combined_images = np.hstack(vertical_images)
+                cv2.imshow("Top CNN inputs", imutils.resize(combined_images, height=480))
+        except: pass
 
         cv2.imshow("Top", frame)
         cv2.waitKey(1)
@@ -244,21 +276,21 @@ class ChessboardClassifier(Node):
         fen_message.data = to_FEN(self.board_result)
         self.fen_pub.publish(fen_message)
 
-        # try:
-        #     if True:
-        #         vertical_images = []
-        #         for x in range(8):
-        #             image_list_vertical = []
-        #             for y in range(7, -1, -1):
-        #                 canvas = resize_and_pad(CNNinputs_padded[8 * y + x].copy(), size=100)
-        #                 cv2.putText(canvas, str(round(angle_list[8 * y + x])), (10, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
-        #                             color=(0, 0, 255))
-        #                 image_list_vertical.append(
-        #                     cv2.copyMakeBorder(canvas, 1, 1, 1, 1, cv2.BORDER_CONSTANT, None, (0, 255, 0)))
-        #             vertical_images.append(np.vstack(image_list_vertical))
-        #         combined_images = np.hstack(vertical_images)
-        #         cv2.imshow("All CNN inputs", combined_images)
-        # except: pass
+        try:
+            if True:
+                vertical_images = []
+                for x in range(8):
+                    image_list_vertical = []
+                    for y in range(7, -1, -1):
+                        canvas = resize_and_pad(CNNinputs_padded[8 * y + x].copy(), size=100)
+                        cv2.putText(canvas, str(round(angle_list[8 * y + x])), (10, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
+                                    color=(0, 0, 255))
+                        image_list_vertical.append(
+                            cv2.copyMakeBorder(canvas, 1, 1, 1, 1, cv2.BORDER_CONSTANT, None, (0, 255, 0)))
+                    vertical_images.append(np.vstack(image_list_vertical))
+                combined_images = np.hstack(vertical_images)
+                cv2.imshow("Side CNN inputs", imutils.resize(combined_images, height=480))
+        except: pass
 
         cv2.imshow("Side", frame)
         cv2.waitKey(1)
