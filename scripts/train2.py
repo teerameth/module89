@@ -66,7 +66,7 @@ from dope.utils import make_grid
 import warnings
 
 warnings.filterwarnings("ignore")
-os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 n_belief = 4    # number of belief map
 ##################################################
@@ -1000,7 +1000,7 @@ conf_parser.add_argument("-c", "--config",
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--data',
-                    default="/home/teera/chessboard/",
+                    default="/media/teera/ROGESD/dataset/dope/output_blender/chessboard",
                     help='path to training data')
 
 parser.add_argument('--datatest',
@@ -1064,7 +1064,7 @@ parser.add_argument('--gpuids',
                     help='GPUs to use')
 
 parser.add_argument('--outf',
-                    default='/home/teera/model/belief/chessboard',
+                    default='/media/teera/ROGESD/model/belief/chessboard',
                     help='folder to output images and model checkpoints, it will \
     add a train_ in front of the name')
 
@@ -1141,7 +1141,7 @@ if not opt.save:
     transform = transforms.Compose([
         AddRandomContrast(contrast),
         AddRandomBrightness(brightness),
-        transforms.Scale(opt.imagesize),
+        transforms.Resize(opt.imagesize),
     ])
 else:
     contrast = 0.00001
@@ -1167,7 +1167,7 @@ if not opt.data == "":
         transform=transform,
         normal=normal_imgs,
         target_transform=transforms.Compose([
-            transforms.Scale(opt.imagesize // 8),
+            transforms.Resize(opt.imagesize // 8),
         ]),
     )
     trainingdata = torch.utils.data.DataLoader(train_dataset,
@@ -1204,7 +1204,7 @@ if not opt.datatest == "":
             transform=transform,
             normal=normal_imgs,
             target_transform=transforms.Compose([
-                transforms.Scale(opt.imagesize // 8),
+                transforms.Resize(opt.imagesize // 8),
             ]),
         ),
         batch_size=opt.batchsize,
