@@ -1,0 +1,4 @@
+int64 mode
+std_msgs/UInt16MultiArray corners
+---
+int64 acknowledge
