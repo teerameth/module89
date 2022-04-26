@@ -40,6 +40,13 @@ mask_contour_index_list = [[0, 1, 2, 3], [4, 5, 6, 7], [0, 1, 5, 4], [1, 2, 6, 5
 scan_box_height = min(chess_piece_height['king'])
 
 cv_bridge = CvBridge()
+def pose2view_angle(rvec, tvec):
+    rotM = np.zeros(shape=(3, 3))
+    rotM, _ = cv2.Rodrigues(rvec, rotM, jacobian=0)
+    tvec_tile_final = np.dot(tvec, rotM.T).reshape(3)
+    tile_x, tile_y, tile_z = tvec_tile_final[0], tvec_tile_final[1], tvec_tile_final[2]
+    angle_rad = math.asin((math.sqrt(tile_x ** 2 + tile_y ** 2)) / (math.sqrt(tile_x ** 2 + tile_y ** 2 + tile_z ** 2)))
+    return angle_rad
 def getBox2D(rvec, tvec, size = 0.05, height = scan_box_height):
     objpts = np.float32([[0, 0, 0], [size, 0, 0], [size, size, 0], [0, size, 0], [0, 0, height], [size, 0, height], [size, size, height], [0, size, height]]).reshape(-1, 3)
     imgpts, jac = cv2.projectPoints(objpts, rvec, tvec, cameraMatrix, dist)
@@ -78,8 +85,8 @@ def llr_tile(rvec, tvec, only_base = False):
             poly_tile = getPoly2D(rvec, translated_tvec, size=0.05)
             valid_contours = getValidContour2D(rvec, translated_tvec, size=0.05, height=scan_box_height, only_base=only_base)
             valid_contours_list.append(valid_contours)
-            angle_rad = poly2view_angle(poly_tile)
-
+            angle_rad = pose2view_angle(rvec, tvec)
+            # angle_rad = poly2view_angle(poly_tile)
             angle_deg = angle_rad / 3.14 * 180
             angle_list.append(angle_deg)
             counter += 1
@@ -222,6 +229,8 @@ class ChessboardClassifier(Node):
             canvas1, canvas2 = [], []
             for j in range(len(cluster_result)):
                 cluster_label = cluster_result[j]
+                if self.clustering_flip == 1:
+                    cluster_label = abs(cluster_label - 1)  # flip 0 <-> 1
                 if cluster_label == 0:
                     canvas1.append(CNNinputs_padded_non_empty[j])
                 elif cluster_label == 1:
@@ -260,7 +269,7 @@ class ChessboardClassifier(Node):
                 cv2.imshow("Top CNN inputs", imutils.resize(combined_images, height=480))
         except: pass
 
-        cv2.imshow("Top", frame)
+        # cv2.imshow("Top", frame)
         # cv2.waitKey(1)
     def chessboard_pose_side_callback(self, img_pose):
         frame = self.bridge.imgmsg_to_cv2(img_pose.image, desired_encoding='passthrough')
@@ -306,10 +315,10 @@ class ChessboardClassifier(Node):
                 cv2.imshow("Side CNN inputs", imutils.resize(combined_images, height=480))
         except: pass
 
-        cv2.imshow("Side", frame)
+        # cv2.imshow("Side", frame)
         cv2.waitKey(1)
     def cluster_lock_callback(self, request, response):
-        lock, flip = request.mode, request.flip
+        lock, flip = request.lock, request.flip
         self.clustering_flip = False if flip == 0 else True
         if lock == 0:   # Lock -> Unlock
             self.clustering_lock = 0
