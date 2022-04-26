@@ -34,6 +34,9 @@ ament_auto_find_build_dependencies()
 rosidl_generate_interfaces(${PROJECT_NAME}
   msg/ChessboardImgPose.msg
   srv/FindBestMove.srv
+  srv/StringMessage.srv
+  srv/ClusterLock.srv
+  srv/PoseLock.srv
   # "srv/ChessboardDetection.srv"
   # "srv/ChessboardPose.srv"
   # "srv/AddThreeInts.srv"
@@ -84,6 +87,9 @@ install(PROGRAMS
   scripts/example_service.py
   scripts/encoder_dynamixel.py
   scripts/dataset_gatherer.py
+  scripts/GameController.py
+  scripts/UdpComms.py
+  scripts/Communication.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
