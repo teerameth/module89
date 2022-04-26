@@ -48,20 +48,18 @@ def getBox2D(rvec, tvec, size = 0.05, height = scan_box_height):
     min_y = int(min(imgpts, key=lambda x: x[0][1]).ravel()[1])
     max_y = int(max(imgpts, key=lambda x: x[0][1]).ravel()[1])
     return (min_x, min_y), (max_x, max_y)
-def getValidContour2D(rvec, tvec, size = 0.05, height = scan_box_height, only_base=False):
+def getValidContour2D(rvec, tvec, size = 0.05, height = scan_box_height):
     objpts = np.float32([[0, 0, 0], [size, 0, 0], [size, size, 0], [0, size, 0], [0, 0, height], [size, 0, height], [size, size, height], [0, size, height]]).reshape(-1, 3)
     imgpts, jac = cv2.projectPoints(objpts, rvec, tvec, cameraMatrix, dist)
     valid_contours = []
-    if only_base: valid_contours.append([imgpts[mask_contour_index_list[0][i]] for i in range(len(mask_contour_index_list[0]))])
-    else:
-        for mask_contour_index in mask_contour_index_list:
-            valid_contours.append([imgpts[mask_contour_index[i]] for i in range(len(mask_contour_index))])
+    for mask_contour_index in mask_contour_index_list:
+        valid_contours.append([imgpts[mask_contour_index[i]] for i in range(len(mask_contour_index))])
     return valid_contours
 def getPoly2D(rvec, tvec, size = 0.05):
     objpts = np.float32([[0, 0, 0], [size, 0, 0], [size, size, 0], [0, size, 0]]).reshape(-1, 3)
     imgpts, jac = cv2.projectPoints(objpts, rvec, tvec, cameraMatrix, dist)
     return imgpts
-def llr_tile(rvec, tvec, only_base = False):
+def llr_tile(rvec, tvec):
     rotM = np.zeros(shape=(3, 3))
     rotM, _ = cv2.Rodrigues(rvec, rotM, jacobian=0)
     ### Draw chess piece space ###
@@ -76,7 +74,7 @@ def llr_tile(rvec, tvec, only_base = False):
             # find angle of each tile
             translated_tvec = tvec + np.dot(board_coordinate, rotM.T)
             poly_tile = getPoly2D(rvec, translated_tvec, size=0.05)
-            valid_contours = getValidContour2D(rvec, translated_tvec, size=0.05, height=scan_box_height, only_base=only_base)
+            valid_contours = getValidContour2D(rvec, translated_tvec, size=0.05, height=scan_box_height)
             valid_contours_list.append(valid_contours)
             angle_rad = poly2view_angle(poly_tile)
 
@@ -120,15 +118,15 @@ def resize_and_pad(img, size=300, padding_color=(0,0,0)):
     top, bottom = delta_h // 2, delta_h - (delta_h // 2)
     left, right = delta_w // 2, delta_w - (delta_w // 2)
     return cv2.copyMakeBorder(img, top, bottom, left, right, cv2.BORDER_CONSTANT, value=padding_color)
-def get_tile(img, rvec, tvec, only_base = False):
-    tile_volume_bbox_list, angle_list, valid_contours_list = llr_tile(rvec, tvec, only_base=only_base)
+def get_tile(img, rvec, tvec):
+    tile_volume_bbox_list, angle_list, valid_contours_list = llr_tile(rvec, tvec)
     CNNinputs = getCNNinput(img, tile_volume_bbox_list, valid_contours_list)
     CNNinputs_padded = []
     for i in range(64):
         CNNinput_padded = resize_and_pad(CNNinputs[i], size=export_size)
         CNNinputs_padded.append(CNNinput_padded)
     return CNNinputs_padded, angle_list
-def get_tile_ImgPose(img_pose: ChessboardImgPose, only_base = False):
+def get_tile_ImgPose(img_pose: ChessboardImgPose):
     tvec = img_pose.pose.position
     tvec = np.array([tvec.x, tvec.y, tvec.z])
     rvec = img_pose.pose.orientation
@@ -138,7 +136,7 @@ def get_tile_ImgPose(img_pose: ChessboardImgPose, only_base = False):
     # cv2.aruco.drawAxis(image=img, cameraMatrix=cameraMatrix, distCoeffs=dist, rvec=rvec, tvec=tvec, length=0.1)
     # cv2.imshow("BBB", img)
     # cv2.waitKey(1)
-    return get_tile(img, rvec, tvec, only_base=only_base)
+    return get_tile(img, rvec, tvec)
 
 def to_FEN(board):
     symbol_dict = {1:'b', 2:'k', 3:'n', 4:'p', 5:'q', 6:'r'}
@@ -185,12 +183,12 @@ class ChessboardClassifier(Node):
         self.board_result_color = np.zeros((8, 8), dtype=np.uint8)
         self.board_result_color_buffer = []     # store history of self.board_result_color
 
-        self.top_filter = True
-        self.side_filter = True
-        self.color_filter = True
-        self.top_filter_length = 3
-        self.side_filter_length = 3
-        self.color_filter_length = 3
+        self.top_filter = False
+        self.side_filter = False
+        self.color_filter = False
+        self.top_filter_length = 10
+        self.side_filter_length = 10
+        self.color_filter_length = 10
 
         self.clustering = None
         self.clustering_lock = False
@@ -198,7 +196,7 @@ class ChessboardClassifier(Node):
     def chessboard_pose_top_callback(self, img_pose):
         frame = self.bridge.imgmsg_to_cv2(img_pose.image, desired_encoding='passthrough')
         # self.get_logger().info(str(get_tile(img_pose)))
-        CNNinputs_padded, angle_list = get_tile_ImgPose(img_pose, only_base=True)
+        CNNinputs_padded, angle_list = get_tile_ImgPose(img_pose)
         Y = self.top_model.predict(np.array(CNNinputs_padded).reshape((-1, 224, 224, 3)))
         Y = np.array(Y).reshape((-1))
         Y = np.where(Y < 0, 0, 1)   # Interpreted prediction
@@ -252,7 +250,8 @@ class ChessboardClassifier(Node):
                     image_list_vertical = []
                     for y in range(7, -1, -1):
                         canvas = resize_and_pad(CNNinputs_padded[8 * y + x].copy(), size=100)
-                        cv2.putText(canvas, str(round(angle_list[8 * y + x])), (10, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color=(0, 0, 255))
+                        cv2.putText(canvas, str(round(angle_list[8 * y + x])), (10, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
+                                    color=(0, 0, 255))
                         image_list_vertical.append(
                             cv2.copyMakeBorder(canvas, 1, 1, 1, 1, cv2.BORDER_CONSTANT, None, (0, 255, 0)))
                     vertical_images.append(np.vstack(image_list_vertical))
@@ -298,7 +297,8 @@ class ChessboardClassifier(Node):
                     image_list_vertical = []
                     for y in range(7, -1, -1):
                         canvas = resize_and_pad(CNNinputs_padded[8 * y + x].copy(), size=100)
-                        cv2.putText(canvas, str(round(angle_list[8 * y + x])), (10, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color=(0, 0, 255))
+                        cv2.putText(canvas, str(round(angle_list[8 * y + x])), (10, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
+                                    color=(0, 0, 255))
                         image_list_vertical.append(
                             cv2.copyMakeBorder(canvas, 1, 1, 1, 1, cv2.BORDER_CONSTANT, None, (0, 255, 0)))
                     vertical_images.append(np.vstack(image_list_vertical))
@@ -309,11 +309,11 @@ class ChessboardClassifier(Node):
         cv2.imshow("Side", frame)
         cv2.waitKey(1)
     def cluster_lock_callback(self, request, response):
-        lock, flip = request.mode, request.flip
+        mode, flip = request.mode, request.flip
         self.clustering_flip = False if flip == 0 else True
-        if lock == 0:   # Lock -> Unlock
+        if mode == 0:   # Lock -> Unlock
             self.clustering_lock = 0
-        elif lock == 1: # Unlock -> Lock
+        elif mode == 1: # Unlock -> Lock
             if self.clustering is None: # Don't have clustering model yet
                 response.acknowledge = 0
                 return response
