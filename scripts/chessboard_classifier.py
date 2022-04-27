@@ -141,15 +141,14 @@ def get_tile_ImgPose(img_pose: ChessboardImgPose, only_base = False):
     rvec = img_pose.pose.orientation
     rvec = q.Quaternion(x=rvec.x, y=rvec.y, z=rvec.z, w=rvec.w)  # Convert to PyQuaternion object
     img = cv_bridge.imgmsg_to_cv2(img_pose.image, desired_encoding='passthrough')
-    print(img.shape)
     rvec, _ = cv2.Rodrigues(rvec.rotation_matrix, jacobian=0)
     # cv2.aruco.drawAxis(image=img, cameraMatrix=cameraMatrix, distCoeffs=dist, rvec=rvec, tvec=tvec, length=0.1)
     # cv2.imshow("BBB", img)
     # cv2.waitKey(1)
     return get_tile(img, rvec, tvec, only_base=only_base)
-
+symbol_dict = {1:'b', 2:'k', 3:'n', 4:'p', 5:'q', 6:'r'}
 def to_FEN(board, color_array):
-    symbol_dict = {1:'b', 2:'k', 3:'n', 4:'p', 5:'q', 6:'r'}
+    global symbol_dict
     FEN_string = ""
     for y in range(8):
         empty = 0
@@ -207,6 +206,7 @@ class ChessboardClassifier(Node):
         self.clustering = None
         self.clustering_lock = False
         self.clustering_flip = False
+        print("CHESSBOARD CLASSIFIER READY!!")
     def chessboard_pose_top_callback(self, img_pose):
         # frame = self.bridge.imgmsg_to_cv2(img_pose.image, desired_encoding='passthrough')
         # self.get_logger().info(str(get_tile(img_pose)))
@@ -287,9 +287,13 @@ class ChessboardClassifier(Node):
                 image_list_vertical = []
                 for y in range(7, -1, -1):
                     canvas = resize_and_pad(CNNinputs_padded[8 * y + x].copy(), size=100)
-                    cv2.putText(canvas, str(round(angle_list[8 * y + x])), (10, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color=(0, 0, 255))
-                    image_list_vertical.append(
-                        cv2.copyMakeBorder(canvas, 1, 1, 1, 1, cv2.BORDER_CONSTANT, None, (0, 255, 0)))
+                    cv2.putText(canvas, str(round(angle_list[8 * y + x])), (10, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color=(0, 255, 0))
+                    ## Fill GREEN/RED overlay
+                    piece_overlay = np.zeros(canvas.shape, dtype=np.uint8)
+                    if self.board_result_binary[y][x]: piece_overlay[:] = (0, 255, 0)
+                    else: piece_overlay[:] = (0, 0, 255)
+                    canvas = cv2.addWeighted(canvas, 0.7, piece_overlay, 0.3, 0)
+                    image_list_vertical.append(cv2.copyMakeBorder(canvas, 1, 1, 1, 1, cv2.BORDER_CONSTANT, None, (0, 255, 0)))
                 vertical_images.append(np.vstack(image_list_vertical))
             combined_images = np.hstack(vertical_images)
             combined_images = imutils.resize(combined_images, height=480)
@@ -307,8 +311,6 @@ class ChessboardClassifier(Node):
         try:
             board_not_empty = np.argwhere(self.board_result_binary.reshape(-1) != 0).reshape(-1)
             tile_index_non_empty = board_not_empty
-            if img_pose.image is None: print("img_pose.image is None")
-            print(img_pose.pose.position, img_pose.pose.orientation)
             CNNinputs_padded, angle_list = get_tile_ImgPose(img_pose, only_base=False)
             CNNinputs_padded_non_empty = np.array(CNNinputs_padded)[tile_index_non_empty]
             board_result = np.zeros((8, 8))    # Reset to empty board
@@ -338,7 +340,14 @@ class ChessboardClassifier(Node):
                 image_list_vertical = []
                 for y in range(7, -1, -1):
                     canvas = resize_and_pad(CNNinputs_padded[8 * y + x].copy(), size=100)
-                    cv2.putText(canvas, str(round(angle_list[8 * y + x])), (10, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color=(0, 0, 255))
+                    cv2.putText(canvas, str(round(angle_list[8 * y + x])), (10, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color=(0, 255, 0))
+                    ## Fill CHESS TYPE overlay
+                    piece_overlay = np.zeros(canvas.shape, dtype=np.uint8)
+                    if self.board_result[y][x] != 0:
+                        char = symbol_dict[self.board_result[y][x]]
+                        if self.board_result_color[y][x] == 1: char = char.upper()
+                        cv2.putText(canvas, char, (20, 80), cv2.FONT_HERSHEY_SIMPLEX, 3, color=(0, 255, 0), thickness=3)
+                        canvas = cv2.addWeighted(canvas, 0.7, piece_overlay, 0.3, 0)
                     image_list_vertical.append(cv2.copyMakeBorder(canvas, 1, 1, 1, 1, cv2.BORDER_CONSTANT, None, (0, 255, 0)))
                 vertical_images.append(np.vstack(image_list_vertical))
             combined_images = np.hstack(vertical_images)

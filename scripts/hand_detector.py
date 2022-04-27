@@ -33,13 +33,23 @@ class HandDetector(Node):
         frame = self.bridge.imgmsg_to_cv2(image, desired_encoding='passthrough')
         results = self.hands.process(frame)
         hand_in_frame = Bool()
-        if results.multi_hand_landmarks: hand_in_frame.data = False
+        if results.multi_hand_landmarks is None: hand_in_frame.data = False
         else: hand_in_frame.data = True
         self.camera0_hand_pub.publish(hand_in_frame)
     def camera1_listener_callback(self, image):
         frame = self.bridge.imgmsg_to_cv2(image, desired_encoding='passthrough')
         results = self.hands.process(frame)
         hand_in_frame = Bool()
-        if results.multi_hand_landmarks: hand_in_frame.data = False
+        if results.multi_hand_landmarks is None: hand_in_frame.data = False
         else: hand_in_frame.data = True
         self.camera1_hand_pub.publish(hand_in_frame)
+
+def main():
+    rclpy.init()
+    hand_detector = HandDetector()
+    rclpy.spin(hand_detector)
+    # chessboard_detector.destroy_subscription(chessboard_detector.camera_sub) # Not need camera after init pose
+    rclpy.shutdown()
+
+if __name__ == "__main__":
+    main()

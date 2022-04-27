@@ -5,7 +5,7 @@ import rclpy
 from rclpy.node import Node
 from cv_bridge import CvBridge
 from sensor_msgs.msg import Image, CameraInfo
-from std_msgs.msg import Float32, Bool
+from std_msgs.msg import Float32, Bool, Float32MultiArray
 from ament_index_python.packages import get_package_share_directory
 from geometry_msgs.msg import Pose, Point, Quaternion
 from sensor_msgs.msg import CameraInfo, Image
@@ -14,6 +14,7 @@ from module89.srv import PoseLock
 
 import cv2
 import imutils
+import mediapipe as mp
 import math
 import simplejson
 import os
@@ -21,6 +22,14 @@ import numpy as np
 import onnxruntime as ort
 from scipy.spatial.transform import Rotation as R
 
+mp_drawing = mp.solutions.drawing_utils
+mp_drawing_styles = mp.solutions.drawing_styles
+mp_hands = mp.solutions.hands
+
+hands = mp_hands.Hands(
+    model_complexity=0,
+    min_detection_confidence=0.5,
+    min_tracking_confidence=0.5)
 def FindMax(maps):
     max_points, max_vals = [], []
     for m in maps:
@@ -74,13 +83,15 @@ class ChessboardTracker(Node):
         # Create camera_image, chessboard_encoder subscriber
         self.camera0_sub = self.create_subscription(Image, '/camera0/image', self.camera0_listener_callback, 10)
         self.camera1_sub = self.create_subscription(Image, '/camera1/image', self.camera1_listener_callback, 10)
-        self.camera0_hand_sub = self.create_subscription(Bool, '/camera0/hand', self.camera0_hand_callback, 10)
-        self.camera1_hand_sub = self.create_subscription(Bool, '/camera1/hand', self.camera1_hand_callback, 10)
+        # self.camera0_hand_sub = self.create_subscription(Bool, '/camera0/hand', self.camera0_hand_callback, 10)
+        # self.camera1_hand_sub = self.create_subscription(Bool, '/camera1/hand', self.camera1_hand_callback, 10)
         self.robot_joint0_sub = self.create_subscription(Float32, '/chessboard/joint0', self.robot_joint0_callback, 10)
         self.encoder_sub = self.create_subscription(Float32, '/chessboard/encoder', self.chessboard_encoder_callback, 10)
 
         self.top_pose_pub = self.create_publisher(ChessboardImgPose, '/chessboard/top/ImgPose', 10)
         self.side_pose_pub = self.create_publisher(ChessboardImgPose, '/chessboard/side/ImgPose', 10)
+        self.top_pose_confidence_pub = self.create_publisher(Float32MultiArray, '/chessboard/top/confidence', 10)
+        self.side_pose_confidence_pub = self.create_publisher(Float32MultiArray, '/chessboard/side/confidence', 10)
         self.tracker_viz_pub = self.create_publisher(Image, '/viz/pose_estimation', 10)
 
         self.lock_srv = self.create_service(PoseLock, 'command_pose_lock', self.pose_lock_callback)
@@ -90,14 +101,14 @@ class ChessboardTracker(Node):
         self.chessboard_encoder, self.chessboard_pose = None, None  # encoder & pose in real-time (independent)
 
         ## Create timer to handle pipeline feeding
-        self.timer = self.create_timer(0.05, self.timer_callback)   # 20 Hz
+        self.timer = self.create_timer(0.1, self.timer_callback)   # 10 Hz
 
         self.camera_lock = [False, False]
         self.camera_lock_pose = [None, None]
 
-        self.hand_in_frame0 = False
-        self.hand_in_frame1 = False
+        self.hand_in_frame = [False, False]
         self.robot_in_frame = False
+        self.get_logger().info("CHESSBOARD_TRACKER READY!!")
     def camera0_listener_callback(self, image):
         self.top_frame = self.bridge.imgmsg_to_cv2(image, desired_encoding='passthrough')
         self.image_buffer['camera0'].append(self.bridge.imgmsg_to_cv2(image, desired_encoding='passthrough'))
@@ -107,13 +118,13 @@ class ChessboardTracker(Node):
         self.side_frame = self.bridge.imgmsg_to_cv2(image, desired_encoding='passthrough')
         self.image_buffer['camera1'].append(self.bridge.imgmsg_to_cv2(image, desired_encoding='passthrough'))
         if len(self.image_buffer['camera1']) > frame_buffer_length: self.image_buffer['camera1'] = self.image_buffer['camera1'][-frame_buffer_length:]
-    def camera0_hand_callback(self, hand):
-        self.hand_in_frame0 = hand.data
-    def camera1_hand_callback(self, hand):
-        self.hand_in_frame1 = hand.data
+    # def camera0_hand_callback(self, hand):
+    #     self.hand_in_frame0 = hand.data
+    # def camera1_hand_callback(self, hand):
+    #     self.hand_in_frame1 = hand.data
     def robot_joint0_callback(self, joint0):
         angle = joint0.data
-        if abs(angle) < 0.9:
+        if abs(angle) < 0.75:
             self.robot_in_frame = True
         else:
             self.robot_in_frame = False
@@ -132,13 +143,10 @@ class ChessboardTracker(Node):
     #     1 ████████████████████████ 3
     def timer_callback(self):
         global obj_points
+        time_stamp = time.time()
         # Wait until both cameras ready
         # print(len(self.image_buffer['camera0']), len(self.image_buffer['camera1']))
-        if len(self.image_buffer['camera0']) > 0 and \
-            len(self.image_buffer['camera1']) > 0 and \
-            not self.hand_in_frame0 and \
-            not self.hand_in_frame1 and \
-            not self.robot_in_frame:
+        if len(self.image_buffer['camera0']) > 0 and len(self.image_buffer['camera1']) > 0:
             images = [self.image_buffer['camera0'][-1], self.image_buffer['camera1'][-1]]
             self.image_buffer['camera0'], self.image_buffer['camera1'] = [], [] # reset buffer
             canvas_image_list, canvas_belief_list, canvas_pose_list = [], [], []
@@ -146,11 +154,24 @@ class ChessboardTracker(Node):
                 image = images[i]
                 canvas_pose = image.copy()
                 canvas_pose_list.append(canvas_pose)
-                canvas_image_list.append(image.copy())
+                canvas_image = image.copy()
+                canvas_image_list.append(canvas_image)
+                # Detect Hand
+                results = hands.process(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+                # Draw the hand annotations on the image.
+                if results.multi_hand_landmarks:
+                    for hand_landmarks in results.multi_hand_landmarks:
+                        mp_drawing.draw_landmarks(
+                            canvas_image,
+                            hand_landmarks,
+                            mp_hands.HAND_CONNECTIONS,
+                            mp_drawing_styles.get_default_hand_landmarks_style(),
+                            mp_drawing_styles.get_default_hand_connections_style())
+                    self.hand_in_frame[i] = True
+                else: self.hand_in_frame[i] = False
                 img_pose_msg = None
                 if self.camera_lock[i]: # if camera pose is locked
                     (rvec, tvec) = self.camera_lock_pose[i] # Use stored pose
-                    print(rvec.shape, tvec.shape)
                     img_pose_msg = ChessboardImgPose()
                     img_pose_msg.pose = preparePose(rvec, tvec)
                     angle = pose2view_angle(rvec.reshape((1, 3)), tvec.reshape((1, 3)))
@@ -168,6 +189,10 @@ class ChessboardTracker(Node):
                     canvas_belief = cv2.addWeighted(image, 0.3, overlay, 0.7, 0)
                     canvas_belief_list.append(canvas_belief)
                     points, vals = FindMax(outputs)
+                    confidences_msg = Float32MultiArray()
+                    confidences_msg.data = vals
+                    if i == 0: self.top_pose_confidence_pub.publish(confidences_msg)
+                    else: self.side_pose_confidence_pub.publish(confidences_msg)
                     confidences = [False if val < confidence_treshold else True for val in vals]
                     for j in range(4): cv2.circle(canvas_pose, (points[i][0] * 8, points[i][1] * 8), 3, (255, 0, 0), -1)
                     if not False in confidences:    # Confident to estimate pose
@@ -186,7 +211,12 @@ class ChessboardTracker(Node):
                     else:   # Unable to estimate pose
                         pass
                 # select topic to publish by view angle
-                if img_pose_msg is not None:
+                if img_pose_msg:
+                    if not self.hand_in_frame[0] and \
+                        not self.hand_in_frame[1] and \
+                        not self.robot_in_frame:
+                        pose_pub = self.top_pose_pub if angle < 0.2 else self.side_pose_pub
+                        pose_pub.publish(img_pose_msg)
                     cv2.rectangle(canvas_pose, (0, 0), (200, 80), (255, 255, 255), -1)
                     absolute_distance = sum([tvec[k]**2 for k in range(len(tvec))])
                     if i == 0:  # angle 0.00, tvec 1.26
@@ -199,8 +229,6 @@ class ChessboardTracker(Node):
                         color_distance = (0, 255, 0) if abs(absolute_distance-0.7) < 0.05 else (0, 0, 255)
                         cv2.putText(canvas_pose, "%.2f/0.35" % (angle), (20, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, color_angle, 2, cv2.LINE_AA)
                         cv2.putText(canvas_pose, "%.2f/0.70" % (absolute_distance), (20, 70), cv2.FONT_HERSHEY_SIMPLEX, 1, color_distance, 2, cv2.LINE_AA)
-                    pose_pub = self.top_pose_pub if angle < 0.2 else self.side_pose_pub
-                    pose_pub.publish(img_pose_msg)
                     cv2.aruco.drawAxis(image=canvas_pose,
                                        cameraMatrix=cameraMatrix,
                                        distCoeffs=dist,
@@ -227,6 +255,7 @@ class ChessboardTracker(Node):
             self.tracker_viz_pub.publish(image_msg)  # Publish image
             # cv2.imshow("Pose Estimation", imutils.resize(canvas, height=900))
             # cv2.waitKey(1)
+        print(time.time() - time_stamp)
 
     def pose_lock_callback(self, request, response):
         mode = request.mode # 1/2 = init from 4 points, 3/4 = init from dope
