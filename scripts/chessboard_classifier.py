@@ -199,9 +199,9 @@ class ChessboardClassifier(Node):
         self.top_filter = True
         self.side_filter = True
         self.color_filter = True
-        self.top_filter_length = 5
-        self.side_filter_length = 5
-        self.color_filter_length = 5
+        self.top_filter_length = 10
+        self.side_filter_length = 10
+        self.color_filter_length = 10
 
         self.clustering = None
         self.clustering_lock = False
@@ -233,6 +233,16 @@ class ChessboardClassifier(Node):
                     clustering = KMeans(n_clusters=2, random_state=0).fit(Y_color)
                     cluster_result = clustering.labels_
                     self.clustering = clustering    # update clustering model
+                    ## fit to nearest side automatically ##
+                    white_side, black_side = [], []
+                    for j in range(len(tile_index_non_empty)):
+                        row_index = int(tile_index_non_empty[j]/8)
+                        if row_index < 4: black_side.append(cluster_result[j])
+                        else: white_side.append(cluster_result[j])
+                    if np.argmax(np.bincount(white_side)) == 0: # Whites already labeled as '0'
+                        self.clustering_flip = False
+                    else: self.clustering_flip = True
+
             if clustering is not None:
                 canvas1, canvas2 = [], []
                 for j in range(len(cluster_result)):
@@ -255,8 +265,9 @@ class ChessboardClassifier(Node):
                         for x in range(8):
                             buffer = []
                             for i in range(self.color_filter_length): buffer.append(self.board_result_color_buffer[i][y][x])
-                            # update only value that pass filter
-                            if np.all(np.array(buffer) == buffer[0]): self.board_result_color[y][x] = buffer[0]
+                            # update value to most frequent in buffer
+                            self.board_result_color[y][x] = np.argmax(np.bincount(buffer))
+                            # if np.all(np.array(buffer) == buffer[0]): self.board_result_color[y][x] = buffer[0]
                     while len(self.board_result_color_buffer) >= self.color_filter_length:
                         self.board_result_color_buffer.pop(0)   # remove first element in buffer
 
@@ -276,8 +287,9 @@ class ChessboardClassifier(Node):
                     for x in range(8):
                         buffer = []
                         for i in range(self.top_filter_length): buffer.append(self.board_result_binary_buffer[i][y][x])
-                        # update only value that pass filter
-                        if np.all(np.array(buffer) == buffer[0]): self.board_result_binary[y][x] = buffer[0]
+                        # update value to most frequent in buffer
+                        self.board_result_binary[y][x] = np.argmax(np.bincount(buffer))
+                        # if np.all(np.array(buffer) == buffer[0]): self.board_result_binary[y][x] = buffer[0]
                 while len(self.board_result_binary_buffer) >= self.top_filter_length:
                     self.board_result_binary_buffer.pop(0)  # remove first element in buffer
             # self.get_logger().info(str(self.board_result_binary))
@@ -285,7 +297,7 @@ class ChessboardClassifier(Node):
             vertical_images = []
             for x in range(8):
                 image_list_vertical = []
-                for y in range(7, -1, -1):
+                for y in range(8):
                     canvas = resize_and_pad(CNNinputs_padded[8 * y + x].copy(), size=100)
                     cv2.putText(canvas, str(round(angle_list[8 * y + x])), (10, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color=(0, 255, 0))
                     ## Fill GREEN/RED overlay
@@ -327,8 +339,9 @@ class ChessboardClassifier(Node):
                     for x in range(8):
                         buffer = []
                         for i in range(self.side_filter_length): buffer.append(self.board_result_buffer[i][y][x])
-                        # update only value that pass filter
-                        if np.all(np.array(buffer) == buffer[0]): self.board_result[y][x] = buffer[0]
+                        # update value to most frequent in buffer
+                        self.board_result[y][x] = np.argmax(np.bincount(buffer))
+                        # if np.all(np.array(buffer) == buffer[0]): self.board_result[y][x] = buffer[0]
                 while len(self.board_result_buffer) >= self.side_filter_length:
                     self.board_result_buffer.pop(0)  # remove first element in buffer
             fen_message = String()
@@ -338,7 +351,7 @@ class ChessboardClassifier(Node):
             vertical_images = []
             for x in range(8):
                 image_list_vertical = []
-                for y in range(7, -1, -1):
+                for y in range(8):
                     canvas = resize_and_pad(CNNinputs_padded[8 * y + x].copy(), size=100)
                     cv2.putText(canvas, str(round(angle_list[8 * y + x])), (10, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color=(0, 255, 0))
                     ## Fill CHESS TYPE overlay
