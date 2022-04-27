@@ -81,6 +81,7 @@ install(PROGRAMS
   scripts/chessboard_encoder_fake.py
   scripts/chess_engine.py
   scripts/chess_client.py
+  scripts/hand_detector.py
   scripts/geometry.py
   scripts/transform.py
   scripts/example_client.py

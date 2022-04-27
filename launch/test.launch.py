@@ -27,15 +27,19 @@ def generate_launch_description():
                 'id': 0,
             }],
         ),
-
-        # Node(
-        #     package='module89',
-        #     executable='camera.py',
-        #     name='camera1',
-        #     parameters=[{
-        #         'id': 1,
-        #     }],
-        # ),
+        Node(
+            package='module89',
+            executable='camera.py',
+            name='camera1',
+            parameters=[{
+                'id': 1,
+            }],
+        ),
+        Node(
+            package='module89',
+            executable='hand_detector.py',
+            name='hand_detector',
+        ),
         # Node(
         #     package='module89',
         #     executable='chessboard_detector_fake.py',

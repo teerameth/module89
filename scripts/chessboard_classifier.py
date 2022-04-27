@@ -141,6 +141,7 @@ def get_tile_ImgPose(img_pose: ChessboardImgPose, only_base = False):
     rvec = img_pose.pose.orientation
     rvec = q.Quaternion(x=rvec.x, y=rvec.y, z=rvec.z, w=rvec.w)  # Convert to PyQuaternion object
     img = cv_bridge.imgmsg_to_cv2(img_pose.image, desired_encoding='passthrough')
+    print(img.shape)
     rvec, _ = cv2.Rodrigues(rvec.rotation_matrix, jacobian=0)
     # cv2.aruco.drawAxis(image=img, cameraMatrix=cameraMatrix, distCoeffs=dist, rvec=rvec, tvec=tvec, length=0.1)
     # cv2.imshow("BBB", img)
@@ -209,146 +210,144 @@ class ChessboardClassifier(Node):
     def chessboard_pose_top_callback(self, img_pose):
         # frame = self.bridge.imgmsg_to_cv2(img_pose.image, desired_encoding='passthrough')
         # self.get_logger().info(str(get_tile(img_pose)))
-        CNNinputs_padded, angle_list = get_tile_ImgPose(img_pose, only_base=True)
-        Y = self.top_model.predict(np.array(CNNinputs_padded).reshape((-1, 224, 224, 3)))
-        Y = np.array(Y).reshape((-1))
-        Y = np.where(Y < 0, 0, 1)   # Interpreted prediction
-        # Classify only index which not empty (extract color feature)
-        tile_index_non_empty = np.argwhere(Y != 0).reshape(-1)
-        CNNinputs_padded_non_empty = np.array(CNNinputs_padded)[tile_index_non_empty]
-        if len(CNNinputs_padded_non_empty) > 0:
-            Y_color = np.array(self.color_model.predict(np.array(CNNinputs_padded_non_empty)))
-        else: Y_color = []
+        try:
+            CNNinputs_padded, angle_list = get_tile_ImgPose(img_pose, only_base=True)
+            Y = self.top_model.predict(np.array(CNNinputs_padded).reshape((-1, 224, 224, 3)))
+            Y = np.array(Y).reshape((-1))
+            Y = np.where(Y < 0, 0, 1)   # Interpreted prediction
+            # Classify only index which not empty (extract color feature)
+            tile_index_non_empty = np.argwhere(Y != 0).reshape(-1)
+            CNNinputs_padded_non_empty = np.array(CNNinputs_padded)[tile_index_non_empty]
+            if len(CNNinputs_padded_non_empty) > 0:
+                Y_color = np.array(self.color_model.predict(np.array(CNNinputs_padded_non_empty)))
+            else: Y_color = []
 
-        if self.clustering_lock:    # Use saved clustering model
-            clustering = self.clustering
-            cluster_result = clustering.predict(Y_color)
-        else:
-            if len(Y_color) < 2: # not enough sample for clustering
-                clustering = None
-                self.get_logger().warn("Not enough sample for clustering (Minimum is 2)")
+            if self.clustering_lock:    # Use saved clustering model
+                clustering = self.clustering
+                cluster_result = clustering.predict(Y_color)
             else:
-                clustering = KMeans(n_clusters=2, random_state=0).fit(Y_color)
-                cluster_result = clustering.labels_
-                self.clustering = clustering    # update clustering model
-        if clustering is not None:
-            canvas1, canvas2 = [], []
-            for j in range(len(cluster_result)):
-                cluster_label = cluster_result[j]
-                if self.clustering_flip == True:
-                    cluster_label = abs(cluster_label - 1)  # flip 0 <-> 1
-                if cluster_label == 0:
-                    canvas1.append(CNNinputs_padded_non_empty[j])
-                elif cluster_label == 1:
-                    canvas2.append(CNNinputs_padded_non_empty[j])
-            # self.board_result_color_buffer.append(self.board_result_color)
-            color_array = np.zeros((8, 8), dtype=np.uint8)
-            for i in range(len(tile_index_non_empty)):
-                non_empty_index = tile_index_non_empty[i]
-                color_array[int(non_empty_index/8)][non_empty_index%8] = cluster_result[i]
-            self.board_result_color_buffer.append(color_array)
-            # print(self.board_result_color_buffer)
-            if len(self.board_result_color_buffer) >= self.color_filter_length: # fill buffer first
+                if len(Y_color) < 2: # not enough sample for clustering
+                    clustering = None
+                    self.get_logger().warn("Not enough sample for clustering (Minimum is 2)")
+                else:
+                    clustering = KMeans(n_clusters=2, random_state=0).fit(Y_color)
+                    cluster_result = clustering.labels_
+                    self.clustering = clustering    # update clustering model
+            if clustering is not None:
+                canvas1, canvas2 = [], []
+                for j in range(len(cluster_result)):
+                    cluster_label = cluster_result[j]
+                    if self.clustering_flip == True:
+                        cluster_label = abs(cluster_label - 1)  # flip 0 <-> 1
+                    if cluster_label == 0:
+                        canvas1.append(CNNinputs_padded_non_empty[j])
+                    elif cluster_label == 1:
+                        canvas2.append(CNNinputs_padded_non_empty[j])
+                # self.board_result_color_buffer.append(self.board_result_color)
+                color_array = np.zeros((8, 8), dtype=np.uint8)
+                for i in range(len(tile_index_non_empty)):
+                    non_empty_index = tile_index_non_empty[i]
+                    color_array[int(non_empty_index/8)][non_empty_index%8] = cluster_result[i]
+                self.board_result_color_buffer.append(color_array)
+                # print(self.board_result_color_buffer)
+                if len(self.board_result_color_buffer) >= self.color_filter_length: # fill buffer first
+                    for y in range(8):
+                        for x in range(8):
+                            buffer = []
+                            for i in range(self.color_filter_length): buffer.append(self.board_result_color_buffer[i][y][x])
+                            # update only value that pass filter
+                            if np.all(np.array(buffer) == buffer[0]): self.board_result_color[y][x] = buffer[0]
+                    while len(self.board_result_color_buffer) >= self.color_filter_length:
+                        self.board_result_color_buffer.pop(0)   # remove first element in buffer
+
+                while len(canvas1) < len(canvas2): canvas1.append(np.zeros_like(CNNinputs_padded_non_empty[j]))
+                while len(canvas2) < len(canvas1): canvas2.append(np.zeros_like(CNNinputs_padded_non_empty[j]))
+                canvas1 = cv2.hconcat(canvas1)
+                canvas2 = cv2.hconcat(canvas2)
+                canvas = imutils.resize(cv2.vconcat([canvas1, canvas2]), height=120)
+                image_msg = self.bridge.cv2_to_imgmsg(canvas, "bgr8")
+                image_msg.header.stamp = self.get_clock().now().to_msg()
+                self.cluster_viz_pub.publish(image_msg)
+                # cv2.imshow("KMeans", canvas)
+
+            self.board_result_binary_buffer.append(Y.reshape((8, 8)))
+            if len(self.board_result_binary_buffer) >= self.top_filter_length:  # fill buffer first
                 for y in range(8):
                     for x in range(8):
                         buffer = []
-                        for i in range(self.color_filter_length): buffer.append(self.board_result_color_buffer[i][y][x])
+                        for i in range(self.top_filter_length): buffer.append(self.board_result_binary_buffer[i][y][x])
                         # update only value that pass filter
-                        if np.all(np.array(buffer) == buffer[0]): self.board_result_color[y][x] = buffer[0]
-                while len(self.board_result_color_buffer) >= self.color_filter_length:
-                    self.board_result_color_buffer.pop(0)   # remove first element in buffer
+                        if np.all(np.array(buffer) == buffer[0]): self.board_result_binary[y][x] = buffer[0]
+                while len(self.board_result_binary_buffer) >= self.top_filter_length:
+                    self.board_result_binary_buffer.pop(0)  # remove first element in buffer
+            # self.get_logger().info(str(self.board_result_binary))
 
-            while len(canvas1) < len(canvas2): canvas1.append(np.zeros_like(CNNinputs_padded_non_empty[j]))
-            while len(canvas2) < len(canvas1): canvas2.append(np.zeros_like(CNNinputs_padded_non_empty[j]))
-            canvas1 = cv2.hconcat(canvas1)
-            canvas2 = cv2.hconcat(canvas2)
-            canvas = imutils.resize(cv2.vconcat([canvas1, canvas2]), height=120)
-            image_msg = self.bridge.cv2_to_imgmsg(canvas, "bgr8")
+            vertical_images = []
+            for x in range(8):
+                image_list_vertical = []
+                for y in range(7, -1, -1):
+                    canvas = resize_and_pad(CNNinputs_padded[8 * y + x].copy(), size=100)
+                    cv2.putText(canvas, str(round(angle_list[8 * y + x])), (10, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color=(0, 0, 255))
+                    image_list_vertical.append(
+                        cv2.copyMakeBorder(canvas, 1, 1, 1, 1, cv2.BORDER_CONSTANT, None, (0, 255, 0)))
+                vertical_images.append(np.vstack(image_list_vertical))
+            combined_images = np.hstack(vertical_images)
+            combined_images = imutils.resize(combined_images, height=480)
+            image_msg = self.bridge.cv2_to_imgmsg(combined_images, "bgr8")
             image_msg.header.stamp = self.get_clock().now().to_msg()
-            self.cluster_viz_pub.publish(image_msg)
-            # cv2.imshow("KMeans", canvas)
-
-        self.board_result_binary_buffer.append(Y.reshape((8, 8)))
-        if len(self.board_result_binary_buffer) >= self.top_filter_length:  # fill buffer first
-            for y in range(8):
-                for x in range(8):
-                    buffer = []
-                    for i in range(self.top_filter_length): buffer.append(self.board_result_binary_buffer[i][y][x])
-                    # update only value that pass filter
-                    if np.all(np.array(buffer) == buffer[0]): self.board_result_binary[y][x] = buffer[0]
-            while len(self.board_result_binary_buffer) >= self.top_filter_length:
-                self.board_result_binary_buffer.pop(0)  # remove first element in buffer
-        # self.get_logger().info(str(self.board_result_binary))
-
-        try:
-            if True:
-                vertical_images = []
-                for x in range(8):
-                    image_list_vertical = []
-                    for y in range(7, -1, -1):
-                        canvas = resize_and_pad(CNNinputs_padded[8 * y + x].copy(), size=100)
-                        cv2.putText(canvas, str(round(angle_list[8 * y + x])), (10, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color=(0, 0, 255))
-                        image_list_vertical.append(
-                            cv2.copyMakeBorder(canvas, 1, 1, 1, 1, cv2.BORDER_CONSTANT, None, (0, 255, 0)))
-                    vertical_images.append(np.vstack(image_list_vertical))
-                combined_images = np.hstack(vertical_images)
-                combined_images = imutils.resize(combined_images, height=480)
-                image_msg = self.bridge.cv2_to_imgmsg(combined_images, "bgr8")
-                image_msg.header.stamp = self.get_clock().now().to_msg()
-                self.top_cnn_viz_pub.publish(image_msg)
-                # cv2.imshow("Top CNN inputs", combined_images)
-        except: pass
+            self.top_cnn_viz_pub.publish(image_msg)
+            # cv2.imshow("Top CNN inputs", combined_images)
+        except Exception as e: print(e)
 
         # cv2.imshow("Top", frame)
         # cv2.waitKey(1)
     def chessboard_pose_side_callback(self, img_pose):
-        frame = self.bridge.imgmsg_to_cv2(img_pose.image, desired_encoding='passthrough')
+        # frame = self.bridge.imgmsg_to_cv2(img_pose.image, desired_encoding='passthrough')
         # self.get_logger().info(str(get_tile(img_pose)))
-        board_not_empty = np.argwhere(self.board_result_binary.reshape(-1) != 0).reshape(-1)
-        tile_index_non_empty = board_not_empty
-        if img_pose.image is None: print("img_pose.image is None")
-        CNNinputs_padded, angle_list = get_tile_ImgPose(img_pose)
-        CNNinputs_padded_non_empty = np.array(CNNinputs_padded)[tile_index_non_empty]
-        board_result = np.zeros((8, 8))    # Reset to empty board
-        if len(board_not_empty) > 0:
-            Y = np.array(self.side_model.predict(np.array(CNNinputs_padded_non_empty)))
-            Y = np.argmax(Y, axis=1)  # Use class with max score
-            # Remap back to chessboard
-            for i in range(len(tile_index_non_empty)):
-                index = tile_index_non_empty[i]
-                board_result[int(index / 8)][index % 8] = Y[i] + 1
-        self.board_result_buffer.append(board_result)
-        if len(self.board_result_buffer) >= self.side_filter_length:  # fill buffer first
-            for y in range(8):
-                for x in range(8):
-                    buffer = []
-                    for i in range(self.side_filter_length): buffer.append(self.board_result_buffer[i][y][x])
-                    # update only value that pass filter
-                    if np.all(np.array(buffer) == buffer[0]): self.board_result[y][x] = buffer[0]
-            while len(self.board_result_buffer) >= self.side_filter_length:
-                self.board_result_buffer.pop(0)  # remove first element in buffer
-        fen_message = String()
-        fen_message.data = to_FEN(self.board_result, self.board_result_color)
-        self.fen_pub.publish(fen_message)
-
         try:
-            if True:
-                vertical_images = []
-                for x in range(8):
-                    image_list_vertical = []
-                    for y in range(7, -1, -1):
-                        canvas = resize_and_pad(CNNinputs_padded[8 * y + x].copy(), size=100)
-                        cv2.putText(canvas, str(round(angle_list[8 * y + x])), (10, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color=(0, 0, 255))
-                        image_list_vertical.append(
-                            cv2.copyMakeBorder(canvas, 1, 1, 1, 1, cv2.BORDER_CONSTANT, None, (0, 255, 0)))
-                    vertical_images.append(np.vstack(image_list_vertical))
-                combined_images = np.hstack(vertical_images)
-                combined_images = imutils.resize(combined_images, height=480)
-                image_msg = self.bridge.cv2_to_imgmsg(combined_images, "bgr8")
-                image_msg.header.stamp = self.get_clock().now().to_msg()
-                self.side_cnn_viz_pub.publish(image_msg)
-                # cv2.imshow("Side CNN inputs", combined_images)
-        except: pass
+            board_not_empty = np.argwhere(self.board_result_binary.reshape(-1) != 0).reshape(-1)
+            tile_index_non_empty = board_not_empty
+            if img_pose.image is None: print("img_pose.image is None")
+            print(img_pose.pose.position, img_pose.pose.orientation)
+            CNNinputs_padded, angle_list = get_tile_ImgPose(img_pose, only_base=False)
+            CNNinputs_padded_non_empty = np.array(CNNinputs_padded)[tile_index_non_empty]
+            board_result = np.zeros((8, 8))    # Reset to empty board
+            if len(board_not_empty) > 0:
+                Y = np.array(self.side_model.predict(np.array(CNNinputs_padded_non_empty)))
+                Y = np.argmax(Y, axis=1)  # Use class with max score
+                # Remap back to chessboard
+                for i in range(len(tile_index_non_empty)):
+                    index = tile_index_non_empty[i]
+                    board_result[int(index / 8)][index % 8] = Y[i] + 1
+            self.board_result_buffer.append(board_result)
+            if len(self.board_result_buffer) >= self.side_filter_length:  # fill buffer first
+                for y in range(8):
+                    for x in range(8):
+                        buffer = []
+                        for i in range(self.side_filter_length): buffer.append(self.board_result_buffer[i][y][x])
+                        # update only value that pass filter
+                        if np.all(np.array(buffer) == buffer[0]): self.board_result[y][x] = buffer[0]
+                while len(self.board_result_buffer) >= self.side_filter_length:
+                    self.board_result_buffer.pop(0)  # remove first element in buffer
+            fen_message = String()
+            fen_message.data = to_FEN(self.board_result, self.board_result_color)
+            self.fen_pub.publish(fen_message)
+
+            vertical_images = []
+            for x in range(8):
+                image_list_vertical = []
+                for y in range(7, -1, -1):
+                    canvas = resize_and_pad(CNNinputs_padded[8 * y + x].copy(), size=100)
+                    cv2.putText(canvas, str(round(angle_list[8 * y + x])), (10, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color=(0, 0, 255))
+                    image_list_vertical.append(cv2.copyMakeBorder(canvas, 1, 1, 1, 1, cv2.BORDER_CONSTANT, None, (0, 255, 0)))
+                vertical_images.append(np.vstack(image_list_vertical))
+            combined_images = np.hstack(vertical_images)
+            combined_images = imutils.resize(combined_images, height=480)
+            image_msg = self.bridge.cv2_to_imgmsg(combined_images, "bgr8")
+            image_msg.header.stamp = self.get_clock().now().to_msg()
+            self.side_cnn_viz_pub.publish(image_msg)
+            # cv2.imshow("Side CNN inputs", combined_images)
+        except Exception as e: print(e)
 
         # cv2.imshow("Side", frame)
         cv2.waitKey(1)

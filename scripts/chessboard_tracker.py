@@ -5,7 +5,7 @@ import rclpy
 from rclpy.node import Node
 from cv_bridge import CvBridge
 from sensor_msgs.msg import Image, CameraInfo
-from std_msgs.msg import Float32
+from std_msgs.msg import Float32, Bool
 from ament_index_python.packages import get_package_share_directory
 from geometry_msgs.msg import Pose, Point, Quaternion
 from sensor_msgs.msg import CameraInfo, Image
@@ -74,6 +74,9 @@ class ChessboardTracker(Node):
         # Create camera_image, chessboard_encoder subscriber
         self.camera0_sub = self.create_subscription(Image, '/camera0/image', self.camera0_listener_callback, 10)
         self.camera1_sub = self.create_subscription(Image, '/camera1/image', self.camera1_listener_callback, 10)
+        self.camera0_hand_sub = self.create_subscription(Bool, '/camera0/hand', self.camera0_hand_callback, 10)
+        self.camera1_hand_sub = self.create_subscription(Bool, '/camera1/hand', self.camera1_hand_callback, 10)
+        self.robot_joint0_sub = self.create_subscription(Float32, '/chessboard/joint0', self.robot_joint0_callback, 10)
         self.encoder_sub = self.create_subscription(Float32, '/chessboard/encoder', self.chessboard_encoder_callback, 10)
 
         self.top_pose_pub = self.create_publisher(ChessboardImgPose, '/chessboard/top/ImgPose', 10)
@@ -91,6 +94,10 @@ class ChessboardTracker(Node):
 
         self.camera_lock = [False, False]
         self.camera_lock_pose = [None, None]
+
+        self.hand_in_frame0 = False
+        self.hand_in_frame1 = False
+        self.robot_in_frame = False
     def camera0_listener_callback(self, image):
         self.top_frame = self.bridge.imgmsg_to_cv2(image, desired_encoding='passthrough')
         self.image_buffer['camera0'].append(self.bridge.imgmsg_to_cv2(image, desired_encoding='passthrough'))
@@ -100,7 +107,16 @@ class ChessboardTracker(Node):
         self.side_frame = self.bridge.imgmsg_to_cv2(image, desired_encoding='passthrough')
         self.image_buffer['camera1'].append(self.bridge.imgmsg_to_cv2(image, desired_encoding='passthrough'))
         if len(self.image_buffer['camera1']) > frame_buffer_length: self.image_buffer['camera1'] = self.image_buffer['camera1'][-frame_buffer_length:]
-
+    def camera0_hand_callback(self, hand):
+        self.hand_in_frame0 = hand.data
+    def camera1_hand_callback(self, hand):
+        self.hand_in_frame1 = hand.data
+    def robot_joint0_callback(self, joint0):
+        angle = joint0.data
+        if abs(angle) < 0.9:
+            self.robot_in_frame = True
+        else:
+            self.robot_in_frame = False
     def chessboard_encoder_callback(self, encoder):
         pass
     #       ░░░ = Black, ███ = White
@@ -118,7 +134,11 @@ class ChessboardTracker(Node):
         global obj_points
         # Wait until both cameras ready
         # print(len(self.image_buffer['camera0']), len(self.image_buffer['camera1']))
-        if len(self.image_buffer['camera0']) > 0 and len(self.image_buffer['camera1']) > 0:
+        if len(self.image_buffer['camera0']) > 0 and \
+            len(self.image_buffer['camera1']) > 0 and \
+            not self.hand_in_frame0 and \
+            not self.hand_in_frame1 and \
+            not self.robot_in_frame:
             images = [self.image_buffer['camera0'][-1], self.image_buffer['camera1'][-1]]
             self.image_buffer['camera0'], self.image_buffer['camera1'] = [], [] # reset buffer
             canvas_image_list, canvas_belief_list, canvas_pose_list = [], [], []
