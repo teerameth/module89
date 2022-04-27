@@ -154,20 +154,18 @@ class Communication:
         Stat, Feedback = self.Write(0xFD, Buffer)
         return Stat
 
-    def SetTask(self, q1, q2, q3, q4):
+    def SetTask(self, x, y, z):
         """
-        JogJoint
+        Cartesian Joint
         ==============
-        Input Delta Position [rad,rad,rad,rad]
+        Input Delta Position [mm,mm,mm,rad]
         In list format
         """
-        q1 = int(q1*1000)
-        q2 = int(q2*1000)
-        q3 = int(q3*1000)
-        q4 = int(q4*1000)
-
-        Buffer = [(q1 & 0xFF00) >> 8, q1 & 0xFF, (q2 & 0xFF00) >> 8, q2 & 0xFF,
-                  (q3 & 0xFF00) >> 8, q3 & 0xFF, (q4 & 0xFF00) >> 8, q4 & 0xFF, 0, 0, 0]
+        x = int(float(x) * 50)
+        y = int(float(y) * 50)
+        z = int(float(z) * 50)
+        Buffer = [(x & 0xFF00) >> 8, x & 0xFF, (y & 0xFF00) >> 8, y &
+                  0xFF, (z & 0xFF00) >> 8, z & 0xFF, 0, 0, 0, 0, 0]
         Stat, Feedback = self.Write(0xFE, Buffer)
         return Stat
 
@@ -185,6 +183,19 @@ class Communication:
                   0xFF, (z & 0xFF00) >> 8, z & 0xFF, 0, 0, 0, 0, 0]
         Stat, Feedback = self.Write(0xFB, Buffer)
         return Stat
+
+    def MoveChess(self, q1, q2,tall):
+        """
+        JogJoint
+        ==============
+        Input Delta Position [rad,rad,rad,rad]
+        In list format
+        """
+        tall = int(float(tall)*100000)
+        Buffer = [(int(q1)& 0xFF), (int(q2)& 0xFF),(tall & 0xFF00) >> 8, tall & 0xFF,
+                 0, 0, 0, 0, 0, 0, 0]
+        Stat, Feedback = self.Write(0xFF, Buffer)
+        return Stat,Feedback
 
     def SystemStat_Read(self):
         Stat, Buf = self.Read(0xA0, 5)
@@ -217,9 +228,27 @@ class Communication:
         return False
 
     def ReadAll(self):
-        Stat, Buf = self.Read(0xAF, 35)
+        Stat, Buf = self.Read(0xAF, 42)
         if Stat:
-            return [(Buf[0] << 8) | Buf[1], ((Buf[2] << 8) | Buf[3])/1000.0, ((Buf[4] << 8) | Buf[5])/1000.0, (int16((Buf[6] << 8) | Buf[7]))/1000.0, (int16((Buf[8] << 8) | Buf[9]))/1000.0, (int16((Buf[10] << 8) | Buf[11]))/1000.0, (int16((Buf[12] << 8) | Buf[13]))/1000.0, (int16((Buf[14] << 8) | Buf[15]))/1000.0, (int16((Buf[16] << 8) | Buf[17]))/1000.0, (int16((Buf[18] << 8) | Buf[19]))/1000.0, (int16((Buf[20] << 8) | Buf[21]))/1000.0, (int16((Buf[22] << 8) | Buf[23]))/1000.0, (int16((Buf[24] << 8) | Buf[25]))/1000.0, int16((Buf[26] << 8) | Buf[27])/10.0, int16((Buf[28] << 8) | Buf[29])/10.0, int16((Buf[30] << 8) | Buf[31])/10.0]
+            return [(int16((Buf[0] << 8) | Buf[1]))/1000.0, ((Buf[2] << 8) | Buf[3])/1000.0, ((Buf[4] << 8) | Buf[5])/1000.0, (int16((Buf[6] << 8) | Buf[7]))/1000.0, (int16((Buf[8] << 8) | Buf[9]))/1000.0, (int16((Buf[10] << 8) | Buf[11]))/1000.0, (int16((Buf[12] << 8) | Buf[13]))/1000.0, (int16((Buf[14] << 8) | Buf[15]))/1000.0, (int16((Buf[16] << 8) | Buf[17]))/1000.0, (int16((Buf[18] << 8) | Buf[19]))/1000.0, (int16((Buf[20] << 8) | Buf[21]))/1000.0, (int16((Buf[22] << 8) | Buf[23]))/1000.0, (int16((Buf[24] << 8) | Buf[25]))/1000.0, int16((Buf[26] << 8) | Buf[27])/10.0, int16((Buf[28] << 8) | Buf[29])/10.0, int16((Buf[30] << 8) | Buf[31])/10.0 , Buf[32],(int16((Buf[33] << 8) | Buf[34]))/10.0,(int16((Buf[35] << 8) | Buf[36]))/10.0,(int16((Buf[37] << 8) | Buf[38]))/10.0]
+        return False
+
+    def SetZero(self):
+        Stat, Feedback = self.Write(0xF7, [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+        if Stat:
+            if Feedback == 0:
+                return True
+            elif Feedback == 1:
+                print("Trajectory not Finish")
+        return False
+
+    def StopPose(self):
+        Stat, Feedback = self.Write(0xF6, [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+        if Stat:
+            if Feedback == 0:
+                return True
+            elif Feedback == 1:
+                print("Trajectory not Finish")
         return False
 
     def Connection_Test(self):
