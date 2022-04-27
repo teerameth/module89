@@ -130,10 +130,12 @@ class ChessboardTracker(Node):
                 img_pose_msg = None
                 if self.camera_lock[i]: # if camera pose is locked
                     (rvec, tvec) = self.camera_lock_pose[i] # Use stored pose
+                    print(rvec.shape, tvec.shape)
                     img_pose_msg = ChessboardImgPose()
                     img_pose_msg.pose = preparePose(rvec, tvec)
-                    angle = pose2view_angle(rvec, tvec)
+                    angle = pose2view_angle(rvec.reshape((1, 3)), tvec.reshape((1, 3)))
                     img_pose_msg.image = self.bridge.cv2_to_imgmsg(image, "bgr8")
+                    canvas_belief_list.append(np.zeros((480, 640, 3), dtype=np.uint8))
                 else:   # Real-time detection (not locked)
                     x = NHWC2NCHW(image)
                     outputs = ort_sess.run(None, {'input': x})  # outputs.shape = (1, 4, 60, 80)
@@ -157,8 +159,7 @@ class ChessboardTracker(Node):
                                                        flags=0)
                         img_pose_msg = ChessboardImgPose()
                         img_pose_msg.pose = preparePose(rvec, tvec)
-                        rvec, tvec = rvec.reshape((1, 3)), tvec.reshape((1, 3))
-                        angle = pose2view_angle(rvec, tvec)
+                        angle = pose2view_angle(rvec.reshape((1, 3)), tvec.reshape((1, 3)))
                         img_pose_msg.image = self.bridge.cv2_to_imgmsg(image, "bgr8")
                         # Store in buffer (for locking purpose)
                         self.camera_lock_pose[i] = (rvec, tvec)
@@ -166,11 +167,18 @@ class ChessboardTracker(Node):
                         pass
                 # select topic to publish by view angle
                 if img_pose_msg is not None:
-                    cv2.putText(canvas_pose, "%.2f" % (angle), (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
-                    # cv2.putText(canvas_pose, "%.2f" % (img_pose_msg.pose.orientation.w), (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
-                    # cv2.putText(canvas_pose, "%.2f" % (img_pose_msg.pose.orientation.x), (50, 100), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
-                    # cv2.putText(canvas_pose, "%.2f" % (img_pose_msg.pose.orientation.y), (50, 150), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
-                    # cv2.putText(canvas_pose, "%.2f" % (img_pose_msg.pose.orientation.z), (50, 200), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
+                    cv2.rectangle(canvas_pose, (0, 0), (200, 80), (255, 255, 255), -1)
+                    absolute_distance = sum([tvec[k]**2 for k in range(len(tvec))])
+                    if i == 0:  # angle 0.00, tvec 1.26
+                        color_angle = (0, 255, 0) if abs(angle) < 0.05 else (0, 0, 255)
+                        color_distance = (0, 255, 0) if abs(absolute_distance-1.26) < 0.05 else (0, 0, 255)
+                        cv2.putText(canvas_pose, "%.2f/0.00" % (angle), (20, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, color_angle, 2, cv2.LINE_AA)
+                        cv2.putText(canvas_pose, "%.2f/1.26" % (absolute_distance), (20, 70), cv2.FONT_HERSHEY_SIMPLEX, 1, color_distance, 2, cv2.LINE_AA)
+                    if i == 1:  # angle 0.35, tvec 0.70
+                        color_angle = (0, 255, 0) if abs(angle - 0.35) < 0.05 else (0, 0, 255)
+                        color_distance = (0, 255, 0) if abs(absolute_distance-0.7) < 0.05 else (0, 0, 255)
+                        cv2.putText(canvas_pose, "%.2f/0.35" % (angle), (20, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, color_angle, 2, cv2.LINE_AA)
+                        cv2.putText(canvas_pose, "%.2f/0.70" % (absolute_distance), (20, 70), cv2.FONT_HERSHEY_SIMPLEX, 1, color_distance, 2, cv2.LINE_AA)
                     pose_pub = self.top_pose_pub if angle < 0.2 else self.side_pose_pub
                     pose_pub.publish(img_pose_msg)
                     cv2.aruco.drawAxis(image=canvas_pose,

@@ -147,7 +147,7 @@ def get_tile_ImgPose(img_pose: ChessboardImgPose, only_base = False):
     # cv2.waitKey(1)
     return get_tile(img, rvec, tvec, only_base=only_base)
 
-def to_FEN(board):
+def to_FEN(board, color_array):
     symbol_dict = {1:'b', 2:'k', 3:'n', 4:'p', 5:'q', 6:'r'}
     FEN_string = ""
     for y in range(8):
@@ -158,7 +158,8 @@ def to_FEN(board):
                 if empty != 0:
                     FEN_string += str(empty)
                     empty = 0
-                FEN_string += symbol_dict[board[y][x]]
+                char = symbol_dict[board[y][x]]
+                FEN_string += char.upper() if color_array[y][x] == 1 else char.lower()
         if empty != 0: FEN_string += str(empty)
         FEN_string += '/'
     return FEN_string[:-1]  # exclude lastest '/'
@@ -172,6 +173,9 @@ class ChessboardClassifier(Node):
         self.chessboard_pose_top_sub = self.create_subscription(ChessboardImgPose, '/chessboard/top/ImgPose', self.chessboard_pose_top_callback, 10)
         self.chessboard_pose_side_sub = self.create_subscription(ChessboardImgPose, '/chessboard/side/ImgPose', self.chessboard_pose_side_callback, 10)
         self.fen_pub = self.create_publisher(String, 'chessboard/fen', 10)
+        self.top_cnn_viz_pub = self.create_publisher(Image, '/viz/top_cnn', 10)
+        self.side_cnn_viz_pub = self.create_publisher(Image, '/viz/side_cnn', 10)
+        self.cluster_viz_pub = self.create_publisher(Image, '/viz/cluster', 10)
 
         self.lock_srv = self.create_service(ClusterLock, 'command_cluster_lock', self.cluster_lock_callback)
 
@@ -195,15 +199,15 @@ class ChessboardClassifier(Node):
         self.top_filter = True
         self.side_filter = True
         self.color_filter = True
-        self.top_filter_length = 3
-        self.side_filter_length = 3
-        self.color_filter_length = 3
+        self.top_filter_length = 5
+        self.side_filter_length = 5
+        self.color_filter_length = 5
 
         self.clustering = None
         self.clustering_lock = False
         self.clustering_flip = False
     def chessboard_pose_top_callback(self, img_pose):
-        frame = self.bridge.imgmsg_to_cv2(img_pose.image, desired_encoding='passthrough')
+        # frame = self.bridge.imgmsg_to_cv2(img_pose.image, desired_encoding='passthrough')
         # self.get_logger().info(str(get_tile(img_pose)))
         CNNinputs_padded, angle_list = get_tile_ImgPose(img_pose, only_base=True)
         Y = self.top_model.predict(np.array(CNNinputs_padded).reshape((-1, 224, 224, 3)))
@@ -212,7 +216,9 @@ class ChessboardClassifier(Node):
         # Classify only index which not empty (extract color feature)
         tile_index_non_empty = np.argwhere(Y != 0).reshape(-1)
         CNNinputs_padded_non_empty = np.array(CNNinputs_padded)[tile_index_non_empty]
-        Y_color = np.array(self.color_model.predict(np.array(CNNinputs_padded_non_empty)))
+        if len(CNNinputs_padded_non_empty) > 0:
+            Y_color = np.array(self.color_model.predict(np.array(CNNinputs_padded_non_empty)))
+        else: Y_color = []
 
         if self.clustering_lock:    # Use saved clustering model
             clustering = self.clustering
@@ -229,18 +235,38 @@ class ChessboardClassifier(Node):
             canvas1, canvas2 = [], []
             for j in range(len(cluster_result)):
                 cluster_label = cluster_result[j]
-                if self.clustering_flip == 1:
+                if self.clustering_flip == True:
                     cluster_label = abs(cluster_label - 1)  # flip 0 <-> 1
                 if cluster_label == 0:
                     canvas1.append(CNNinputs_padded_non_empty[j])
                 elif cluster_label == 1:
                     canvas2.append(CNNinputs_padded_non_empty[j])
+            # self.board_result_color_buffer.append(self.board_result_color)
+            color_array = np.zeros((8, 8), dtype=np.uint8)
+            for i in range(len(tile_index_non_empty)):
+                non_empty_index = tile_index_non_empty[i]
+                color_array[int(non_empty_index/8)][non_empty_index%8] = cluster_result[i]
+            self.board_result_color_buffer.append(color_array)
+            # print(self.board_result_color_buffer)
+            if len(self.board_result_color_buffer) >= self.color_filter_length: # fill buffer first
+                for y in range(8):
+                    for x in range(8):
+                        buffer = []
+                        for i in range(self.color_filter_length): buffer.append(self.board_result_color_buffer[i][y][x])
+                        # update only value that pass filter
+                        if np.all(np.array(buffer) == buffer[0]): self.board_result_color[y][x] = buffer[0]
+                while len(self.board_result_color_buffer) >= self.color_filter_length:
+                    self.board_result_color_buffer.pop(0)   # remove first element in buffer
+
             while len(canvas1) < len(canvas2): canvas1.append(np.zeros_like(CNNinputs_padded_non_empty[j]))
             while len(canvas2) < len(canvas1): canvas2.append(np.zeros_like(CNNinputs_padded_non_empty[j]))
             canvas1 = cv2.hconcat(canvas1)
             canvas2 = cv2.hconcat(canvas2)
-            canvas = cv2.vconcat([canvas1, canvas2])
-            cv2.imshow("KMeans", imutils.resize(canvas, height=120))
+            canvas = imutils.resize(cv2.vconcat([canvas1, canvas2]), height=120)
+            image_msg = self.bridge.cv2_to_imgmsg(canvas, "bgr8")
+            image_msg.header.stamp = self.get_clock().now().to_msg()
+            self.cluster_viz_pub.publish(image_msg)
+            # cv2.imshow("KMeans", canvas)
 
         self.board_result_binary_buffer.append(Y.reshape((8, 8)))
         if len(self.board_result_binary_buffer) >= self.top_filter_length:  # fill buffer first
@@ -266,7 +292,11 @@ class ChessboardClassifier(Node):
                             cv2.copyMakeBorder(canvas, 1, 1, 1, 1, cv2.BORDER_CONSTANT, None, (0, 255, 0)))
                     vertical_images.append(np.vstack(image_list_vertical))
                 combined_images = np.hstack(vertical_images)
-                cv2.imshow("Top CNN inputs", imutils.resize(combined_images, height=480))
+                combined_images = imutils.resize(combined_images, height=480)
+                image_msg = self.bridge.cv2_to_imgmsg(combined_images, "bgr8")
+                image_msg.header.stamp = self.get_clock().now().to_msg()
+                self.top_cnn_viz_pub.publish(image_msg)
+                # cv2.imshow("Top CNN inputs", combined_images)
         except: pass
 
         # cv2.imshow("Top", frame)
@@ -276,6 +306,7 @@ class ChessboardClassifier(Node):
         # self.get_logger().info(str(get_tile(img_pose)))
         board_not_empty = np.argwhere(self.board_result_binary.reshape(-1) != 0).reshape(-1)
         tile_index_non_empty = board_not_empty
+        if img_pose.image is None: print("img_pose.image is None")
         CNNinputs_padded, angle_list = get_tile_ImgPose(img_pose)
         CNNinputs_padded_non_empty = np.array(CNNinputs_padded)[tile_index_non_empty]
         board_result = np.zeros((8, 8))    # Reset to empty board
@@ -297,7 +328,7 @@ class ChessboardClassifier(Node):
             while len(self.board_result_buffer) >= self.side_filter_length:
                 self.board_result_buffer.pop(0)  # remove first element in buffer
         fen_message = String()
-        fen_message.data = to_FEN(self.board_result)
+        fen_message.data = to_FEN(self.board_result, self.board_result_color)
         self.fen_pub.publish(fen_message)
 
         try:
@@ -312,7 +343,11 @@ class ChessboardClassifier(Node):
                             cv2.copyMakeBorder(canvas, 1, 1, 1, 1, cv2.BORDER_CONSTANT, None, (0, 255, 0)))
                     vertical_images.append(np.vstack(image_list_vertical))
                 combined_images = np.hstack(vertical_images)
-                cv2.imshow("Side CNN inputs", imutils.resize(combined_images, height=480))
+                combined_images = imutils.resize(combined_images, height=480)
+                image_msg = self.bridge.cv2_to_imgmsg(combined_images, "bgr8")
+                image_msg.header.stamp = self.get_clock().now().to_msg()
+                self.side_cnn_viz_pub.publish(image_msg)
+                # cv2.imshow("Side CNN inputs", combined_images)
         except: pass
 
         # cv2.imshow("Side", frame)

@@ -1,7 +1,7 @@
 {
-  "base_path":"/media/teera/7378BCB242C83684/model",
+  "base_path":"/media/teera/ROGESD/model",
   "top_classifier":"classification/chess/MobileNetV2_binary/model.h5",
   "side_classifier":"classification/chess/EfficientNetB0_piece/model.h5",
   "color_classifier": "classification/chess/MobileNetV2_color/model.h5",
-  "dope":"dope/chessboard/net_epoch_120.onnx"
+  "dope":"/media/teera/ROGESD/model/belief/chessboard_mono_6_stage/net_epoch_51.onnx"
 }
