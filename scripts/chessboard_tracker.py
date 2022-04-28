@@ -83,8 +83,6 @@ class ChessboardTracker(Node):
         # Create camera_image, chessboard_encoder subscriber
         self.camera0_sub = self.create_subscription(Image, '/camera0/image', self.camera0_listener_callback, 10)
         self.camera1_sub = self.create_subscription(Image, '/camera1/image', self.camera1_listener_callback, 10)
-        # self.camera0_hand_sub = self.create_subscription(Bool, '/camera0/hand', self.camera0_hand_callback, 10)
-        # self.camera1_hand_sub = self.create_subscription(Bool, '/camera1/hand', self.camera1_hand_callback, 10)
         self.robot_joint0_sub = self.create_subscription(Float32, '/chessboard/joint0', self.robot_joint0_callback, 10)
         self.encoder_sub = self.create_subscription(Float32, '/chessboard/encoder', self.chessboard_encoder_callback, 10)
 
@@ -93,7 +91,9 @@ class ChessboardTracker(Node):
         self.top_pose_confidence_pub = self.create_publisher(Float32MultiArray, '/chessboard/top/confidence', 10)
         self.side_pose_confidence_pub = self.create_publisher(Float32MultiArray, '/chessboard/side/confidence', 10)
         self.tracker_viz_pub = self.create_publisher(Image, '/viz/pose_estimation', 10)
-
+        self.camera0_hand_pub = self.create_publisher(Bool, '/camera0/hand', 10)
+        self.camera1_hand_pub = self.create_publisher(Bool, '/camera1/hand', 10)
+        self.camera_hand_pub = [self.camera0_hand_pub, self.camera1_hand_pub]
         self.lock_srv = self.create_service(PoseLock, 'command_pose_lock', self.pose_lock_callback)
 
         self.bridge = CvBridge()  # Bridge between "CV (NumPy array)" <-> "ROS sensor_msgs/Image"
@@ -169,6 +169,9 @@ class ChessboardTracker(Node):
                             mp_drawing_styles.get_default_hand_connections_style())
                     self.hand_in_frame[i] = True
                 else: self.hand_in_frame[i] = False
+                hand_in_frame_msg = Bool()
+                hand_in_frame_msg.data = self.hand_in_frame[i]
+                self.camera_hand_pub[i].publish(hand_in_frame_msg)  # share hand_in_frame data
                 img_pose_msg = None
                 if self.camera_lock[i]: # if camera pose is locked
                     (rvec, tvec) = self.camera_lock_pose[i] # Use stored pose

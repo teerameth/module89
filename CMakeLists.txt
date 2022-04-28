@@ -37,6 +37,8 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   srv/StringMessage.srv
   srv/ClusterLock.srv
   srv/PoseLock.srv
+  srv/ExecuteBestMove.srv
+  srv/PseudoBoardSetup.srv
   # "srv/ChessboardDetection.srv"
   # "srv/ChessboardPose.srv"
   # "srv/AddThreeInts.srv"
@@ -91,6 +93,7 @@ install(PROGRAMS
   scripts/GameController.py
   scripts/UdpComms.py
   scripts/Communication.py
+  scripts/pseudo_state.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

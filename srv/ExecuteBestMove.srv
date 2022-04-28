@@ -1,0 +1,4 @@
+bool mode
+std_msgs/String move
+---
+bool valid

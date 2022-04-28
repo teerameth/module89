@@ -4,7 +4,7 @@ import rclpy
 from rclpy.node import Node
 from cv_bridge import CvBridge
 from sensor_msgs.msg import Image, CameraInfo
-from std_msgs.msg import Float32, String
+from std_msgs.msg import Float32, String, UInt8MultiArray
 from ament_index_python.packages import get_package_share_directory
 from geometry_msgs.msg import Pose, Point, Quaternion
 from sensor_msgs.msg import CameraInfo, Image
@@ -172,7 +172,9 @@ class ChessboardClassifier(Node):
         # Subscribe chessboard poses
         self.chessboard_pose_top_sub = self.create_subscription(ChessboardImgPose, '/chessboard/top/ImgPose', self.chessboard_pose_top_callback, 10)
         self.chessboard_pose_side_sub = self.create_subscription(ChessboardImgPose, '/chessboard/side/ImgPose', self.chessboard_pose_side_callback, 10)
+
         self.fen_pub = self.create_publisher(String, 'chessboard/fen', 10)
+        self.fen_binary_pub = self.create_publisher(UInt8MultiArray, '/chessboard/fen_binary', 10)
         self.top_cnn_viz_pub = self.create_publisher(Image, '/viz/top_cnn', 10)
         self.side_cnn_viz_pub = self.create_publisher(Image, '/viz/side_cnn', 10)
         self.cluster_viz_pub = self.create_publisher(Image, '/viz/cluster', 10)
@@ -293,6 +295,11 @@ class ChessboardClassifier(Node):
                 while len(self.board_result_binary_buffer) >= self.top_filter_length:
                     self.board_result_binary_buffer.pop(0)  # remove first element in buffer
             # self.get_logger().info(str(self.board_result_binary))
+
+            ## Publish FEN binary ##
+            fen_binary_msg = UInt8MultiArray()
+            fen_binary_msg.data = [int(item) for item in self.board_result_binary.reshape(-1)]
+            self.fen_binary_pub.publish(fen_binary_msg)
 
             vertical_images = []
             for x in range(8):
