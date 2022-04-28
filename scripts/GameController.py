@@ -2,19 +2,36 @@
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String
-from std_msgs.msg import Float32
+from std_msgs.msg import Float32,UInt8
 from module89.srv import StringMessage
 from module89.srv import ClusterLock
 from module89.srv import PoseLock
 from module89.srv import FindBestMove
-
+from cv_bridge import CvBridge
 from std_msgs.msg import UInt16MultiArray
-
+from sensor_msgs.msg import Image
+from module89.srv import ExecuteBestMove
 #Communication
 import time
 import UdpComms as U
 import cv2
 from Communication import Communication,CRC8
+import numpy as np
+
+canvas = None
+canvas_tmp = None
+four_points = []
+pressmode = None
+def click_corner(event, x, y, flags, param):
+    global img, four_points, canvas, canvas_tmp
+    if event == cv2.EVENT_LBUTTONDOWN:
+        cv2.circle(canvas, (x, y), 5, (255, 0, 0), -1)
+        four_points.append((x, y))
+    if event == cv2.EVENT_MOUSEMOVE:
+        canvas_tmp = canvas.copy()
+        cv2.line(canvas_tmp, (x, 0), (x, 1080), (0, 255, 0), 1)
+        cv2.line(canvas_tmp, (0, y), (1920, y), (0, 255, 0), 1)
+
 
 
 class GameController(Node):
@@ -31,6 +48,7 @@ class GameController(Node):
         self.x= float(0)
         self.y= float(0)
         self.z= float(0)
+        self.bridge = CvBridge()
         self.status = [0,0,0,0,0,0,0]
         self.name = ['q1', 'q2', 'q3', 'q4', 'x', 'y', 'z']
         self.waitMove = False
@@ -42,6 +60,9 @@ class GameController(Node):
         self.timer_before_movechess = 0
         self.dl_buffer = []
         self.wait_time = 5
+        self.camera0_frame = None
+        self.camera1_frame = None
+        self.ai_ready = None
         # self.img_sock1 = U.UdpComms(udpIP=ip, portTX=8002,portRX=8001, suppressWarnings=True) # Image1 Socket-
         # self.img_sock2 = U.UdpComms(udpIP=ip, portTX=8003,portRX=8001, suppressWarnings=True) # Image2 Socket
         # self.image_bytes = cv2.imencode('.jpg', cv2.imread("2.jpg"))[1].tobytes()
@@ -52,14 +73,47 @@ class GameController(Node):
         self.encoder = self.create_publisher(Float32, '/chessboard/encoder', 10)
         timer_period = 0.1  # seconds
         self.timer = self.create_timer(timer_period, self.timer_callback_encoder)
+        self.time23 = None
 
         #command_cluster_lock , command_pose_lock
 
+        # self.chessboard_fen_sub = self.create_subscription(
+        #     String,
+        #     '/chessboard/fen',
+        #     self.fen_callback,
+        #     10)
         self.chessboard_fen_sub = self.create_subscription(
             String,
-            '/chessboard/fen',
+            '/chessboard/pseudo_fen',
             self.fen_callback,
             10)
+
+        self.camera0_image = self.create_subscription(
+            Image,
+            '/camera0/image',
+            self.camera0_image_callback,
+            10)
+
+        self.camera1_image = self.create_subscription(
+            Image,
+            '/camera1/image',
+            self.camera1_image_callback,
+            10)
+
+        self.ai_stat = self.create_subscription(
+            UInt8,
+            '/chessboard/AI_ready',
+            self.ai_stat_callback,
+            10)
+
+        self.ai_bestmove = self.create_subscription(
+            String,
+            '/chessboard/AI_bestmove',
+            self.ai_bestmove_callback,
+            10)
+
+
+        # self.chessboard_fen
 
         self.bestmove_cli = self.create_client(FindBestMove, 'find_best_move')
         # while not self.bestmove_cli.wait_for_service(timeout_sec=1.0):
@@ -78,11 +132,21 @@ class GameController(Node):
         self.pose_lock_req = PoseLock.Request()
         self.pose_lock_get = False
 
+        self.execute_bestmove_cli = self.create_client(ExecuteBestMove, 'execute_bestmove')
+        # while not self.pose_lock_cli.wait_for_service(timeout_sec=1.0):
+        #     self.get_logger().info('service not available, waiting again...')
+        self.execute_bestmove_req = ExecuteBestMove.Request()
+        self.execute_bestmove_get = False
+
         self.cluster_lock_cli = self.create_client(ClusterLock, 'command_cluster_lock')
         # while not self.cluster_lock_cli.wait_for_service(timeout_sec=1.0):
         #     self.get_logger().info('service not available, waiting again...')
         self.cluster_lock_req = ClusterLock.Request()
         self.cluster_lock_get = False
+        self.get_ready = False
+        self.ai_move = None
+
+
 
         self.get = False
         self.TimeBefore = time.time()
@@ -90,6 +154,48 @@ class GameController(Node):
         timer_period = 1 / 100  # seconds
         self.timer = self.create_timer(timer_period, self.timer_callback)
         # self.run()
+        self.camera_timer = self.create_timer(1/10, self.camera_callback)
+    def ai_stat_callback(self,msg):
+        if msg.data == 2 and not self.get_ready:
+            self.get_ready = True
+
+
+    def ai_bestmove_callback(self,msg):
+        if self.get_ready:
+            self.ai_ready = True
+            self.ai_move = msg.data
+            self.get_ready = False
+
+    def camera_callback(self):
+        global four_points,pressmode,canvas,canvas_tmp
+        if self.camera0_frame is not None and self.camera1_frame is not None:
+            cv2.imshow("camera0",self.camera0_frame)
+            cv2.imshow("camera1",self.camera1_frame)
+            key = cv2.waitKey(1)
+            if key == ord('1') or key == ord('2'):
+                four_points = []
+                if key == ord('1'):
+                    pressmode = 1
+                    canvas = self.camera0_frame.copy()
+                elif key == ord('2'):
+                    pressmode = 2
+                    canvas = self.camera1_frame.copy()
+                cv2.namedWindow('Assign Corner', cv2.WND_PROP_FULLSCREEN)
+                cv2.setWindowProperty('Assign Corner', cv2.WND_PROP_AUTOSIZE, cv2.WINDOW_FULLSCREEN)
+                cv2.setMouseCallback('Assign Corner', click_corner)
+            if key == ord(' '): # Start capture
+                self.pose_lock_request(pressmode,[[int(point[0]), int(point[1])] for point in four_points])
+            if canvas is not None:
+                canvas_tmp = canvas.copy()
+                cv2.imshow('Assign Corner',canvas_tmp)
+            # key = cv2.waitKey(1)
+
+
+    def camera0_image_callback(self,image):
+        self.camera0_frame = self.bridge.imgmsg_to_cv2(image, desired_encoding='passthrough')
+
+    def camera1_image_callback(self, image):
+        self.camera1_frame = self.bridge.imgmsg_to_cv2(image, desired_encoding='passthrough')
 
     def timer_callback_joint0(self):
         msg = Float32()
@@ -104,15 +210,26 @@ class GameController(Node):
     def fen_callback(self,msg):
         self.chessboard_fen = msg.data
 
+
+    def execute_request(self,a1,a2):
+         msg = String()
+         self.execute_bestmove_req.mode = False
+         self.execute_bestmove_req.move = msg
+         self.execute_bestmove_future = self.execute_bestmove_cli.call_async(self.execute_bestmove_req)
+
+
+
     def bestmove_request(self,fen):
         bestmove = String()
-        print(str(fen) + " - - 1 2")
-        bestmove.data = str(fen) + " - - 1 2"
+        # print(str(fen) + " - - 1 2")
+        bestmove.data = str(fen)  + " - - 1 2"
         # bestmove.data = "8/2p4k/2q1pQ1p/4pN2/3br3/7P/5Pr1/5R1K b - - 1 2"
         self.bestmove_req.fen = bestmove
         self.bestmove_future = self.bestmove_cli.call_async(self.bestmove_req)
         self.bestmove_get = True
 
+    def point_request(self):
+        pass
 
     def fen_request(self):
         pass
@@ -124,10 +241,10 @@ class GameController(Node):
         self.cluster_lock_req.flip = flip
         self.cluster_lock_future = self.cluster_lock_cli.call_async(self.cluster_lock_req)
 
-    def pose_lock_request(self,mode,corners = None):
+    def pose_lock_request(self,mode,corners = []):
         self.pose_lock_req.mode = mode
         croners = UInt16MultiArray()
-        croners.data = []
+        croners.data = [int(item) for item in np.array(corners).reshape(-1)]
         self.pose_lock_req.corners = croners
         self.pose_lock_future = self.pose_lock_cli.call_async(self.pose_lock_req)
 
@@ -178,6 +295,16 @@ class GameController(Node):
                 else:
                     self.pose_lock_get = False
                     self.data_sock.SendData(response.acknowledge)
+
+        if self.execute_bestmove_get:
+            if self.execute_bestmove_future.done():
+                try:
+                    response = self.execute_bestmove_future.result()
+                except Exception as e:
+                    print(e)
+                else:
+                    self.execute_bestmove_get = False
+                    # self.data_sock.SendData(response.acknowledge)
         if(time.time() - self.time_delay >=2):
             if self.waitMove:
                 if self.robotmode == 1:
@@ -196,6 +323,11 @@ class GameController(Node):
                 self.waitMove = True
                 self.time_delay = time.time()
             self.wait_time = 9999999
+        if self.time23 is not None:
+
+            if time.time() - self.time23 >=10:
+                self.execute_request(0,0)
+                self.time23 = time.time() +99999999
 
 
 
@@ -235,8 +367,15 @@ class GameController(Node):
                 self.narwhal.StopPose()
             elif dl[0] == "SETZERO":
                 self.narwhal.SetZero()
+            elif dl[0] == "POINT":
+                self.point_request()
             elif dl[0] == "GRIP":
                 pass
+            elif dl[0] == "CHECKREADY":
+                if self.ai_ready:
+                    self.data_sock.SendData("AIMOVE " + self.ai_move)
+                    self.time23 = time.time()
+                    self.ai_ready = False
             elif dl[0] == "FEN":
                 self.bestmove_request(dl[1] + " " + dl[2])
             elif dl[0] == "PYSERIAL":
