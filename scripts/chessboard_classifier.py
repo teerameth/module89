@@ -47,8 +47,9 @@ def pose2view_angle(rvec, tvec):
     tile_x, tile_y, tile_z = tvec_tile_final[0], tvec_tile_final[1], tvec_tile_final[2]
     angle_rad = math.asin((math.sqrt(tile_x ** 2 + tile_y ** 2)) / (math.sqrt(tile_x ** 2 + tile_y ** 2 + tile_z ** 2)))
     return angle_rad
-def getBox2D(rvec, tvec, size = 0.05, height = scan_box_height):
+def getBox2D(rvec, tvec, size = 0.05, height = scan_box_height, only_base=False):
     objpts = np.float32([[0, 0, 0], [size, 0, 0], [size, size, 0], [0, size, 0], [0, 0, height], [size, 0, height], [size, size, height], [0, size, height]]).reshape(-1, 3)
+    if only_base: objpts = objpts[mask_contour_index_list[0]]
     imgpts, jac = cv2.projectPoints(objpts, rvec, tvec, cameraMatrix, dist)
     min_x = int(min(imgpts, key=lambda x: x[0][0]).ravel()[0])
     max_x = int(max(imgpts, key=lambda x: x[0][0]).ravel()[0])
@@ -77,7 +78,7 @@ def llr_tile(rvec, tvec, only_base = False):
     for y in range(3, -5, -1):
         for x in range(-4, 4):
             board_coordinate = np.array([x * 0.05, y * 0.05, 0.0])
-            (min_x, min_y), (max_x, max_y) = getBox2D(rvec, tvec + np.dot(board_coordinate, rotM.T), size=0.05, height=scan_box_height)
+            (min_x, min_y), (max_x, max_y) = getBox2D(rvec, tvec + np.dot(board_coordinate, rotM.T), size=0.05, height=scan_box_height, only_base=only_base)
             tile_volume_bbox_list.append([(min_x, min_y), (max_x, max_y)])
 
             # find angle of each tile
@@ -96,6 +97,20 @@ def llr_tile(rvec, tvec, only_base = False):
         tile_volume_bbox_list_new.append(tile_volume_bbox_list[8*y+x])
         angle_list_new.append(angle_list[8*y+x])
     return tile_volume_bbox_list, angle_list, valid_contours_list
+def llr_tile_top(rvec, tvec):
+    rotM = np.zeros(shape=(3, 3))
+    rotM, _ = cv2.Rodrigues(rvec, rotM, jacobian=0)
+    ### Draw chess piece space ###
+    counter = 0
+    poly_tile_list = []
+    for y in range(3, -5, -1):
+        for x in range(-4, 4):
+            board_coordinate = np.array([x * 0.05, y * 0.05, 0.0])
+            # find angle of each tile
+            translated_tvec = tvec + np.dot(board_coordinate, rotM.T)
+            poly_tile = getPoly2D(rvec, translated_tvec, size=0.05)
+            poly_tile_list.append(poly_tile)
+    return poly_tile_list
 def getCNNinput(img, bbox_list, valid_contours_list):
     CNNinputs = []
     for i in range(len(bbox_list)):
@@ -135,6 +150,14 @@ def get_tile(img, rvec, tvec, only_base = False):
         CNNinput_padded = resize_and_pad(CNNinputs[i], size=export_size)
         CNNinputs_padded.append(CNNinput_padded)
     return CNNinputs_padded, angle_list
+def get_tile_top(img, rvec, tvec):
+    poly_tile_list = llr_tile_top(rvec, tvec)
+    CNNinputs = []
+    pts2 = np.float32([(0, export_size-1), (export_size-1, export_size-1), (export_size-1, 0), (0, 0)])
+    for poly_tile in poly_tile_list:
+        M = cv2.getAffineTransform(np.float32(poly_tile).reshape((4, 2))[:3], pts2[:3])
+        CNNinputs.append(cv2.warpAffine(img, M, (export_size, export_size)))
+    return CNNinputs
 def get_tile_ImgPose(img_pose: ChessboardImgPose, only_base = False):
     tvec = img_pose.pose.position
     tvec = np.array([tvec.x, tvec.y, tvec.z])
@@ -146,6 +169,17 @@ def get_tile_ImgPose(img_pose: ChessboardImgPose, only_base = False):
     # cv2.imshow("BBB", img)
     # cv2.waitKey(1)
     return get_tile(img, rvec, tvec, only_base=only_base)
+def get_tile_top_ImgPose(img_pose: ChessboardImgPose):
+    tvec = img_pose.pose.position
+    tvec = np.array([tvec.x, tvec.y, tvec.z])
+    rvec = img_pose.pose.orientation
+    rvec = q.Quaternion(x=rvec.x, y=rvec.y, z=rvec.z, w=rvec.w)  # Convert to PyQuaternion object
+    img = cv_bridge.imgmsg_to_cv2(img_pose.image, desired_encoding='passthrough')
+    rvec, _ = cv2.Rodrigues(rvec.rotation_matrix, jacobian=0)
+    # cv2.aruco.drawAxis(image=img, cameraMatrix=cameraMatrix, distCoeffs=dist, rvec=rvec, tvec=tvec, length=0.1)
+    # cv2.imshow("BBB", img)
+    # cv2.waitKey(1)
+    return get_tile_top(img, rvec, tvec)
 symbol_dict = {1:'b', 2:'k', 3:'n', 4:'p', 5:'q', 6:'r'}
 def to_FEN(board, color_array):
     global symbol_dict
@@ -213,7 +247,8 @@ class ChessboardClassifier(Node):
         # frame = self.bridge.imgmsg_to_cv2(img_pose.image, desired_encoding='passthrough')
         # self.get_logger().info(str(get_tile(img_pose)))
         try:
-            CNNinputs_padded, angle_list = get_tile_ImgPose(img_pose, only_base=True)
+            # CNNinputs_padded, angle_list = get_tile_ImgPose(img_pose, only_base=True)
+            CNNinputs_padded = get_tile_top_ImgPose(img_pose)
             Y = self.top_model.predict(np.array(CNNinputs_padded).reshape((-1, 224, 224, 3)))
             Y = np.array(Y).reshape((-1))
             Y = np.where(Y < 0, 0, 1)   # Interpreted prediction
@@ -306,7 +341,7 @@ class ChessboardClassifier(Node):
                 image_list_vertical = []
                 for y in range(8):
                     canvas = resize_and_pad(CNNinputs_padded[8 * y + x].copy(), size=100)
-                    cv2.putText(canvas, str(round(angle_list[8 * y + x])), (10, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color=(0, 255, 0))
+                    # cv2.putText(canvas, str(round(angle_list[8 * y + x])), (10, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color=(0, 255, 0))
                     ## Fill GREEN/RED overlay
                     piece_overlay = np.zeros(canvas.shape, dtype=np.uint8)
                     if self.board_result_binary[y][x]: piece_overlay[:] = (0, 255, 0)
