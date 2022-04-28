@@ -89,26 +89,7 @@ while True:
         # if confidences[i] is True:
         #     cv2.circle(canvas, (points[i][0]*8, points[i][1]*8), 3, (255, 0, 0), -1)
     cv2.imshow("Detected points", canvas)
-    # obj_points, img_points = [], []
-    # for i in range(5):
-    #     if confidences[i] is True:
-    #         obj_points.append(based_obj_points[i])
-    #         img_points.append(points[i])
 
-    # if len(obj_points) >= 4:
-    #     obj_points = np.array(obj_points)
-    #     img_points = np.array(img_points, dtype=np.double) * 8
-    #     ret, rvec, tvec = cv2.solvePnP(objectPoints=obj_points,
-    #                                    imagePoints=img_points,
-    #                                    cameraMatrix=cameraMatrix,
-    #                                    distCoeffs=dist,
-    #                                    flags=0)
-    #     cv2.aruco.drawAxis(image=canvas,
-    #                        cameraMatrix=cameraMatrix,
-    #                        distCoeffs=dist,
-    #                        rvec=rvec,
-    #                        tvec=tvec,
-    #                        length=0.1)
 
     if not False in confidences:
         canvas = image.copy()

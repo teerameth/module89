@@ -76,6 +76,13 @@ def pose2view_angle(rvec, tvec):
     tile_x, tile_y, tile_z = tvec_tile_final[0], tvec_tile_final[1], tvec_tile_final[2]
     angle_rad = math.asin((math.sqrt(tile_x ** 2 + tile_y ** 2)) / (math.sqrt(tile_x ** 2 + tile_y ** 2 + tile_z ** 2)))
     return angle_rad
+def rotate(rvec, angle):
+    rotM = np.zeros(shape=(3, 3))
+    new_rvec = np.zeros(3)
+    rotM, _ = cv2.Rodrigues(rvec, rotM, jacobian=0)  # Convert from rotation vector -> rotation matrix (rvec=rot_vector, rotM=rot_matrix)
+    rotM = np.dot(rotM, np.array([[math.cos(angle), -math.sin(angle), 0], [math.sin(angle), math.cos(angle), 0], [0, 0, 1]]))  # Rotate zeta degree about Z-axis
+    new_rvec, _ = cv2.Rodrigues(rotM, new_rvec, jacobian=0)  # Convert from rotation matrix -> rotation vector
+    return new_rvec
 class ChessboardTracker(Node):
     def __init__(self):
         super().__init__('chessboard_tracker')
@@ -105,6 +112,7 @@ class ChessboardTracker(Node):
 
         self.camera_lock = [False, False]
         self.camera_lock_pose = [None, None]
+        self.chessboard_lock_encoder = [None, None]
 
         self.hand_in_frame = [False, False]
         self.robot_in_frame = False
@@ -129,7 +137,7 @@ class ChessboardTracker(Node):
         else:
             self.robot_in_frame = False
     def chessboard_encoder_callback(self, encoder):
-        pass
+        self.chessboard_encoder = encoder.data
     #       ░░░ = Black, ███ = White
     #     0 ░░░░░░░░░░░░░░░░░░░░░░░░ 2
     #       ░░░███░░░███░░░███░░░███
@@ -152,12 +160,14 @@ class ChessboardTracker(Node):
             canvas_image_list, canvas_belief_list, canvas_pose_list = [], [], []
             for i in range(2):
                 image = images[i]
-                canvas_pose = image.copy()
+                image_480p = imutils.resize(image, height=480)[:, 106:106 + 640]
+
+                canvas_pose = image_480p.copy()
                 canvas_pose_list.append(canvas_pose)
-                canvas_image = image.copy()
+                canvas_image = image_480p.copy()
                 canvas_image_list.append(canvas_image)
                 # Detect Hand
-                results = hands.process(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+                results = hands.process(cv2.cvtColor(image_480p, cv2.COLOR_BGR2RGB))
                 # Draw the hand annotations on the image.
                 if results.multi_hand_landmarks:
                     for hand_landmarks in results.multi_hand_landmarks:
@@ -175,21 +185,24 @@ class ChessboardTracker(Node):
                 img_pose_msg = None
                 if self.camera_lock[i]: # if camera pose is locked
                     (rvec, tvec) = self.camera_lock_pose[i] # Use stored pose
+                    delta_angle = self.chessboard_encoder - self.chessboard_lock_encoder[i]
+                    rvec = rotate(rvec, delta_angle)
+
                     img_pose_msg = ChessboardImgPose()
                     img_pose_msg.pose = preparePose(rvec, tvec)
                     angle = pose2view_angle(rvec.reshape((1, 3)), tvec.reshape((1, 3)))
-                    img_pose_msg.image = self.bridge.cv2_to_imgmsg(image, "bgr8")
+                    img_pose_msg.image = self.bridge.cv2_to_imgmsg(image_480p, "bgr8")
                     canvas_belief_list.append(np.zeros((480, 640, 3), dtype=np.uint8))
                 else:   # Real-time detection (not locked)
-                    x = NHWC2NCHW(image)
+                    x = NHWC2NCHW(image_480p)
                     outputs = ort_sess.run(None, {'input': x})  # outputs.shape = (1, 4, 60, 80)
                     outputs = outputs[0][0]
                     overlay = np.zeros(outputs[0].shape, dtype=np.float32)
                     for j in range(4): overlay += outputs[i]
                     overlay = cv2.cvtColor(overlay, cv2.COLOR_GRAY2BGR)
                     overlay = np.array(overlay * 255, dtype=np.uint8)
-                    overlay = imutils.resize(overlay, height=image.shape[0])
-                    canvas_belief = cv2.addWeighted(image, 0.3, overlay, 0.7, 0)
+                    overlay = imutils.resize(overlay, height=image_480p.shape[0])
+                    canvas_belief = cv2.addWeighted(image_480p, 0.3, overlay, 0.7, 0)
                     canvas_belief_list.append(canvas_belief)
                     points, vals = FindMax(outputs)
                     confidences_msg = Float32MultiArray()
@@ -200,6 +213,11 @@ class ChessboardTracker(Node):
                     for j in range(4): cv2.circle(canvas_pose, (points[i][0] * 8, points[i][1] * 8), 3, (255, 0, 0), -1)
                     if not False in confidences:    # Confident to estimate pose
                         img_points = np.array([points[0], points[1], points[2], points[3]], dtype=np.double) * 8
+                        # map points 480p -> 1080p
+                        scale = 1080 / 480
+                        img_points = np.array([((point[0] + 106) * scale, point[1] * scale) for point in img_points],
+                                              dtype=np.double)
+                        print(img_points)
                         ret, rvec, tvec = cv2.solvePnP(objectPoints=obj_points,
                                                        imagePoints=img_points,
                                                        cameraMatrix=cameraMatrix,
@@ -289,7 +307,9 @@ class ChessboardTracker(Node):
                         self.get_logger().warn("Unable to lock pose from /camera0 (No stored pose in buffer)")
                         response.acknowledge = 0
                         return response
-                    else: self.camera_lock[0] = True
+                    else:
+                        self.camera_lock[0] = True
+                        self.chessboard_lock_encoder[0] = self.chessboard_encoder
             if mode == 4:
                 if self.camera_lock[1]: # Lock -> Unlock
                     self.camera_lock[1] = False
@@ -298,7 +318,9 @@ class ChessboardTracker(Node):
                         self.get_logger().warn("Unable to lock pose from /camera1 (No stored pose in buffer)")
                         response.acknowledge = 0
                         return response
-                    else: self.camera_lock[1] = True
+                    else:
+                        self.camera_lock[1] = True
+                        self.chessboard_lock_encoder[1] = self.chessboard_encoder
             response.acknowledge = 1
         return response
 def main():
