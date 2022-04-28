@@ -15,12 +15,14 @@ class ChessEngine(Node):
         super().__init__('chess_engine')
         self.engine_srv = self.create_service(FindBestMove, 'find_best_move', self.find_best_move_callback)
     def find_best_move_callback(self, request, response):
+
         fen = request.fen.data
         board = chess.Board(fen)
         limit = chess.engine.Limit(time=3)
         result = engine.play(board, limit)
         bestmove = String()
         bestmove.data = str(result.move)
+        print(result.move)
         response.bestmove = bestmove
         return response
 

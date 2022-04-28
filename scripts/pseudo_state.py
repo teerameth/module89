@@ -57,7 +57,7 @@ class PseudoStateController(Node):
         return True if self.AI_side == self.turn else False
     @property
     def human_turn(self):   # human turn status (opposite to AI)
-        return False if self.AI_side == self.turn else False
+        return False if self.AI_side == self.turn else True
     @property
     def AI_ready(self):
         return self._AI_ready
@@ -94,8 +94,8 @@ class PseudoStateController(Node):
                     self.get_logger().info("Update board state to:\n{}".format(str(self.board)))
                     ## Start searching ##
                     result = engine.play(self.board, limit)
-                    self.best_move = str(result.move.uci())
-                    self.AI_bestmove_pub.publish(String(data=self.best_move))   # publish bestmove before set status to ready
+                    self.best_move = result.move
+                    self.AI_bestmove_pub.publish(String(data=self.best_move.uci()))   # publish bestmove before set status to ready
                     self.AI_ready = 2  # Change AI state to ready
                 else:   # change came from illegal move
                     self.illegal_move = True
@@ -126,6 +126,7 @@ class PseudoStateController(Node):
                     response.valid = False
                     return response
             # Execute bestmove
+            print(self.best_move)
             self.board.push(self.best_move)
             self.get_logger().info("Update board state to:\n{}".format(str(self.board)))
             self.fen_binary_old = fen2binary(self.board.fen())  # update old binary after AI move
@@ -143,7 +144,17 @@ class PseudoStateController(Node):
     # def camera1_hand_callback(self, hand):
     #     if hand.data and self.turn == self.human_turn: self.hand_detected = True  # only updated in human turn
     def timer_callback(self):
-        if self.best_move is not None: self.AI_bestmove_pub.publish(String(data=self.best_move))
+        if self.best_move is not None: self.AI_bestmove_pub.publish(String(data=str(self.best_move.uci())))
         self.illegal_pub.publish(Bool(data=self.illegal_move))  # publish illegal action indicator
         self.pseudo_fen.publish(String(data=self.board.fen()))  # publish board state as FEN
         self.AI_ready_pub.publish(UInt8(data=self.AI_ready))    # publish AI status
+        self.turn_pub.publish(UInt8(data=self.turn))            # publish turn status
+def main():
+    rclpy.init()
+    pseudo_state_controller = PseudoStateController()
+    rclpy.spin(pseudo_state_controller)
+    # chessboard_detector.destroy_subscription(chessboard_detector.camera_sub) # Not need camera after init pose
+    rclpy.shutdown()
+
+if __name__ == "__main__":
+    main()

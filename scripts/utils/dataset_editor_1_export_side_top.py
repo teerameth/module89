@@ -169,8 +169,8 @@ dataset_config = json.load(open(os.path.join('../../config/dataset_config.json')
 output_path = dataset_config['capture_path']
 file_list = sorted(glob.glob(os.path.join(output_path, '*.tfrecords')))
 fen_list = sorted(glob.glob(os.path.join(output_path, '*.txt')))
-top_writer = tf.io.TFRecordWriter(os.path.join(output_path, 'top.tfrecords'))
-side_writer = tf.io.TFRecordWriter(os.path.join(output_path, 'side.tfrecords'))
+# top_writer = tf.io.TFRecordWriter(os.path.join(output_path, 'top.tfrecords'))
+# side_writer = tf.io.TFRecordWriter(os.path.join(output_path, 'side.tfrecords'))
 
 for i in range(len(file_list)):
     file_path = file_list[i]
@@ -196,6 +196,8 @@ for i in range(len(file_list)):
             CNNinputs_padded, angle_list = get_tile(image, rvec, tvec)
 
             angle = pose2view_angle(rvec, tvec) # get view angle (radian)
+            print(tvec)
+            print(sum([tvec[k]**2 for k in range(len(tvec))]))
             # divide 2 camera view [top <0.05, side >0.3]
             for x in range(8):
                 for y in range(8):
@@ -205,12 +207,12 @@ for i in range(len(file_list)):
                         if label != 0:
                             label = label - 1
                             tf_example = image_example(tile_image, label)
-                            side_writer.write(tf_example.SerializeToString())
+                            # side_writer.write(tf_example.SerializeToString())
                         else: continue # skip empty
                     else: # top view
                         if label != 0: label = 1    # binary label
                         tf_example = image_example(tile_image, label)
-                        top_writer.write(tf_example.SerializeToString())
+                        # top_writer.write(tf_example.SerializeToString())
 
             # canvas = image.copy()
             # cv2.aruco.drawAxis(image=canvas,
@@ -238,5 +240,5 @@ for i in range(len(file_list)):
             # cv2.imshow("All CNN inputs", combined_images)
             # key = cv2.waitKey(0)
             # if key == ord('n'): break
-side_writer.close()
-top_writer.close()
+# side_writer.close()
+# top_writer.close()

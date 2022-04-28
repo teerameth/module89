@@ -1,5 +1,5 @@
 {
-  "base_path":"/mnt/HDD/model",
+  "base_path":"/media/teera/ROGESD/model",
   "top_classifier":"classification/chess/MobileNetV2_binary/model.h5",
   "side_classifier":"classification/chess/EfficientNetB0_piece/model.h5",
   "color_classifier": "classification/chess/MobileNetV2_color/model.h5",

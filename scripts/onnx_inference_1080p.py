@@ -44,7 +44,7 @@ def NonMaximaSuppression(map): # Non-maxima suppression
     return mask
 
 # cap = cv2.VideoCapture("/mnt/HDD/dataset/module89/V4_vdo+labels/20/62.avi")
-cap = cv2.VideoCapture(0)
+cap = cv2.VideoCapture(2)
 # cap.set(3, 640)
 # cap.set(4, 480)
 cap.set(3, 1920)
@@ -55,7 +55,8 @@ cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)
 cap.set(cv2.CAP_PROP_AUTO_WB, 0)
 cap.set(cv2.CAP_PROP_FOCUS, 2)
 # vdo_length = int(cap. get(cv2. CAP_PROP_FRAME_COUNT))
-model_path = '/media/teera/SSD250GB/model/belief/chessboard_mono_6_stage/net_epoch_51.onnx'
+model_path = '/media/teera/ROGESD/model/belief/chessboard_mono_6_stage/net_epoch_51.onnx'
+# model_path = '/media/teera/ROGESD/model/belief/chessboard/net_epoch_91.onnx'
 ort_sess = ort.InferenceSession(model_path, providers=['TensorrtExecutionProvider', 'CUDAExecutionProvider'])  # TensorrtExecutionProvider having the higher priority.
 
 # for f in range(vdo_length):
@@ -70,6 +71,8 @@ while True:
     x = np.expand_dims(x, 0)
     outputs = ort_sess.run(None, {'input': x})  # outputs.shape = (1, 4, 60, 80)
     outputs = outputs[0][0]
+    for output in outputs:  # normalize to (0, 1)
+        output = (output - np.min(output)) / (np.max(output) - np.min(output))
     overlay = np.zeros(outputs[0].shape, dtype=np.float32)
     for i in range(4): overlay += outputs[i]
     overlay = cv2.cvtColor(overlay, cv2.COLOR_GRAY2BGR)
@@ -82,7 +85,7 @@ while True:
     # points, vals = FindMax(outputs[0][0])
     # for i in range(len(points)): cv2.circle(canvas, (points[i][0]*8, points[i][1]*8), 3, (255, 0, 0), -1)
     points, vals = FindMax(outputs)
-    # print(vals)
+    print(vals)
     confidences = [False if val < 0.03 else True for val in vals]
     for i in range(4):
         cv2.circle(canvas, (int(points[i][0] * 8), int(points[i][1] * 8)), 3, (255, 0, 0), -1)

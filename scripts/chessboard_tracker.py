@@ -40,7 +40,9 @@ def FindMax(maps):
 
 config = simplejson.load(open(os.path.join(get_package_share_directory('module89'), 'config', 'camera_config.json')))
 cameraMatrix = np.array(config['camera_matrix'], np.float32)
+cameraMatrix_480p = np.array([[644.087256825243, 0.0, 309.1417827997037], [0.0, 642.8598111549119, 249.01453092931135], [0.0, 0.0, 1.0]], dtype=np.double)
 dist = np.array(config['dist'])
+dist_480p = np.array([0.03672884949866897, -0.10294807463664257, 0.0011913543867174093, 0.0011747283686503252, -0.0020924260016065353], dtype=np.double)
 frame_buffer_length = 10
 
 confidence_treshold = 0.03
@@ -160,8 +162,8 @@ class ChessboardTracker(Node):
             canvas_image_list, canvas_belief_list, canvas_pose_list = [], [], []
             for i in range(2):
                 image = images[i]
-                image_480p = imutils.resize(image, height=480)[:, 106:106 + 640]
-
+                # image_480p = imutils.resize(image, height=480)[:, 106:106 + 640]
+                image_480p = image
                 canvas_pose = image_480p.copy()
                 canvas_pose_list.append(canvas_pose)
                 canvas_image = image_480p.copy()
@@ -185,18 +187,25 @@ class ChessboardTracker(Node):
                 img_pose_msg = None
                 if self.camera_lock[i]: # if camera pose is locked
                     (rvec, tvec) = self.camera_lock_pose[i] # Use stored pose
-                    delta_angle = self.chessboard_encoder - self.chessboard_lock_encoder[i]
-                    rvec = rotate(rvec, delta_angle)
+                    if self.chessboard_lock_encoder[i] is not None:
+                        delta_angle = self.chessboard_encoder - self.chessboard_lock_encoder[i]
+                        rvec = rotate(rvec, delta_angle)
 
-                    img_pose_msg = ChessboardImgPose()
-                    img_pose_msg.pose = preparePose(rvec, tvec)
-                    angle = pose2view_angle(rvec.reshape((1, 3)), tvec.reshape((1, 3)))
-                    img_pose_msg.image = self.bridge.cv2_to_imgmsg(image_480p, "bgr8")
-                    canvas_belief_list.append(np.zeros((480, 640, 3), dtype=np.uint8))
+                        img_pose_msg = ChessboardImgPose()
+                        img_pose_msg.pose = preparePose(rvec, tvec)
+                        angle = pose2view_angle(rvec.reshape((1, 3)), tvec.reshape((1, 3)))
+                        img_pose_msg.image = self.bridge.cv2_to_imgmsg(image_480p, "bgr8")
+                        canvas_belief_list.append(np.zeros((480, 640, 3), dtype=np.uint8))
                 else:   # Real-time detection (not locked)
                     x = NHWC2NCHW(image_480p)
                     outputs = ort_sess.run(None, {'input': x})  # outputs.shape = (1, 4, 60, 80)
                     outputs = outputs[0][0]
+
+                    # outputs_buffer = []
+                    # for output in outputs:  # normalize to (0, 1)
+                    #     outputs_buffer.append((output - np.min(output)) / (np.max(output) - np.min(output)))
+                    # outputs = outputs_buffer
+
                     overlay = np.zeros(outputs[0].shape, dtype=np.float32)
                     for j in range(4): overlay += outputs[i]
                     overlay = cv2.cvtColor(overlay, cv2.COLOR_GRAY2BGR)
@@ -214,10 +223,10 @@ class ChessboardTracker(Node):
                     if not False in confidences:    # Confident to estimate pose
                         img_points = np.array([points[0], points[1], points[2], points[3]], dtype=np.double) * 8
                         # map points 480p -> 1080p
-                        scale = 1080 / 480
-                        img_points = np.array([((point[0] + 106) * scale, point[1] * scale) for point in img_points],
-                                              dtype=np.double)
-                        print(img_points)
+                        # scale = 1080 / 480
+                        # img_points = np.array([((point[0] + 106) * scale, point[1] * scale) for point in img_points],
+                        #                       dtype=np.double)
+                        # print(img_points)
                         ret, rvec, tvec = cv2.solvePnP(objectPoints=obj_points,
                                                        imagePoints=img_points,
                                                        cameraMatrix=cameraMatrix,
@@ -251,8 +260,8 @@ class ChessboardTracker(Node):
                         cv2.putText(canvas_pose, "%.2f/0.35" % (angle), (20, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, color_angle, 2, cv2.LINE_AA)
                         cv2.putText(canvas_pose, "%.2f/0.70" % (absolute_distance), (20, 70), cv2.FONT_HERSHEY_SIMPLEX, 1, color_distance, 2, cv2.LINE_AA)
                     cv2.aruco.drawAxis(image=canvas_pose,
-                                       cameraMatrix=cameraMatrix,
-                                       distCoeffs=dist,
+                                       cameraMatrix=cameraMatrix_480p,
+                                       distCoeffs=dist_480p,
                                        rvec=rvec,
                                        tvec=tvec,
                                        length=0.1)
@@ -286,6 +295,9 @@ class ChessboardTracker(Node):
             response.acknowledge = 1
         if mode == 1 or mode == 2:
             img_points = request.corners.data
+            print("AAAAAAAA")
+            print(img_points)
+            img_points = np.array(img_points, dtype=np.float32).reshape((-1, 2))
             ret, rvec, tvec = cv2.solvePnP(objectPoints=obj_points,
                                            imagePoints=img_points,
                                            cameraMatrix=cameraMatrix,
@@ -295,8 +307,15 @@ class ChessboardTracker(Node):
                 response.acknowledge = 0
                 return response
             response.acknowledge = 1
-            if mode == 1: self.camera_lock_pose[0] = (rvec, tvec)
-            if mode == 2: self.camera_lock_pose[1] = (rvec, tvec)
+            if mode == 1:
+                self.camera_lock_pose[0] = (rvec, tvec)
+                self.chessboard_lock_encoder[0] = self.chessboard_encoder
+                self.camera_lock[0] = True
+            if mode == 2:
+                self.camera_lock_pose[1] = (rvec, tvec)
+                self.chessboard_lock_encoder[1] = self.chessboard_encoder
+                self.camera_lock[1] = True
+
 
         elif mode == 3 or mode == 4:
             if mode == 3:

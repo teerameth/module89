@@ -235,9 +235,9 @@ class ChessboardClassifier(Node):
         self.top_filter = True
         self.side_filter = True
         self.color_filter = True
-        self.top_filter_length = 10
-        self.side_filter_length = 10
-        self.color_filter_length = 10
+        self.top_filter_length = 5
+        self.side_filter_length = 5
+        self.color_filter_length = 5
 
         self.clustering = None
         self.clustering_lock = False
