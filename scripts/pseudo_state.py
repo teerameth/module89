@@ -24,11 +24,25 @@ def fen2binary(fen):
                 board_binary[row][counter] = 1
                 counter += 1
     return board_binary
+def fen2color(fen):
+    fen_board = fen.split(' ')[0]
+    fen_board = fen_board.split('/')
+    board_color = np.zeros((8, 8), dtype=np.uint8)
+    for row in range(8):
+        counter = 0
+        for char in fen_board[row]:
+            if char.isnumeric():
+                counter += int(char)
+            else:
+                board_color[row][counter] = char.isupper()
+                counter += 1
+    return board_color
 
 class PseudoStateController(Node):
     def __init__(self):
         super().__init__('psuedo_state_controller')
         self.fen_binary_sub = self.create_subscription(UInt8MultiArray, '/chessboard/fen_binary', self.fen_binary_callback, 10)
+        self.fen_color_sub = self.create_subscription(UInt8MultiArray, '/chessboard/fen_color', self.fen_color_callback, 10)
         # self.camera0_hand_sub = self.create_subscription(Bool, '/camera0/hand', self.camera0_hand_callback, 10)
         # self.camera1_hand_sub = self.create_subscription(Bool, '/camera1/hand', self.camera1_hand_callback, 10)
 
@@ -43,9 +57,10 @@ class PseudoStateController(Node):
         self.execute_bestmove_srv = self.create_service(ExecuteBestMove, 'execute_bestmove', self.execute_bestmove_callback)
         self.setting_srv = self.create_service(PseudoBoardSetup, 'pseudo_board_setup', self.setup_callback)
 
-        self.board = chess.Board()  # init Board() object
+        self.board = chess.Board("rnbqkbnr/pppp1p1p/8/4p1p1/5P2/8/PPPPP1PP/RNBQKBNR w KQkq - 0 1")  # init Board() object
         self.fen_binary_old = fen2binary(self.board.fen())
         self.fen_binary = None
+        self.fen_color = None
         # self.hand_detected = False
         self.AI_side = 1    # 0=White, 1=Black
         self.turn = 0       # 0=White, 1=Black (White always play first)
@@ -74,16 +89,25 @@ class PseudoStateController(Node):
         for legal_move in self.board.legal_moves:
             self.board.push(legal_move)
             candidate_binary = fen2binary(self.board.fen())
-            if (candidate_binary == self.fen_binary).all():  # found match binary board
+            candidate_color = fen2color(self.board.fen())
+            binary_matched = (candidate_binary == self.fen_binary).all()
+            color_matched = True
+            for y in range(8):
+                for x in range(8):
+                    if self.fen_binary[y][x]:
+                        if self.fen_color[y][x] != candidate_color[y][x]: color_matched = False # color not matched
+            if binary_matched and color_matched:  # found match binary board
                 self.board.pop()    # undo true move
                 return True, legal_move
             self.board.pop()    # undo wrong move
-        return False, None
+        return False, None  # No matched move
+
+
     def fen_binary_callback(self, fen_binary):  # Main state machine controller
         self.fen_binary = np.array(fen_binary.data, dtype=np.uint8).reshape((8, 8))
         # consider only in human turn
         if self.human_turn:
-            if self.any_change():   # Detect movement in fen_binary
+            if self.any_change() and self.fen_color is not None:   # Detect movement in fen_binary
                 ret, truemove = self.valid_move()
                 if ret: # change came from valid move
                     self.illegal_move = False
@@ -99,7 +123,8 @@ class PseudoStateController(Node):
                     self.AI_ready = 2  # Change AI state to ready
                 else:   # change came from illegal move
                     self.illegal_move = True
-
+    def fen_color_callback(self, fen_color):
+        self.fen_color = np.array(fen_color.data, dtype=np.uint8).reshape((8, 8))
     def execute_bestmove_callback(self, request, response):
         if self.AI_turn:
             if request.mode:    # Manual mode

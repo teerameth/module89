@@ -209,6 +209,7 @@ class ChessboardClassifier(Node):
 
         self.fen_pub = self.create_publisher(String, 'chessboard/fen', 10)
         self.fen_binary_pub = self.create_publisher(UInt8MultiArray, '/chessboard/fen_binary', 10)
+        self.fen_color_pub = self.create_publisher(UInt8MultiArray, '/chessboard/fen_color', 10)
         self.top_cnn_viz_pub = self.create_publisher(Image, '/viz/top_cnn', 10)
         self.side_cnn_viz_pub = self.create_publisher(Image, '/viz/side_cnn', 10)
         self.cluster_viz_pub = self.create_publisher(Image, '/viz/cluster', 10)
@@ -235,8 +236,8 @@ class ChessboardClassifier(Node):
         self.top_filter = True
         self.side_filter = True
         self.color_filter = True
-        self.top_filter_length = 5
-        self.side_filter_length = 5
+        self.top_filter_length = 10
+        self.side_filter_length = 10
         self.color_filter_length = 5
 
         self.clustering = None
@@ -335,6 +336,9 @@ class ChessboardClassifier(Node):
             fen_binary_msg = UInt8MultiArray()
             fen_binary_msg.data = [int(item) for item in self.board_result_binary.reshape(-1)]
             self.fen_binary_pub.publish(fen_binary_msg)
+            fen_color_msg = UInt8MultiArray()
+            fen_color_msg.data = [int(item) for item in self.board_result_color.reshape(-1)]
+            self.fen_color_pub.publish(fen_color_msg)
 
             vertical_images = []
             for x in range(8):
