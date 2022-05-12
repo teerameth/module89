@@ -72,12 +72,12 @@ class GameController(Node):
         # self.img_sock2 = U.UdpComms(udpIP=ip, portTX=8003,portRX=8001, suppressWarnings=True) # Image2 Socket
         # self.image_bytes = cv2.imencode('.jpg', cv2.imread("2.jpg"))[1].tobytes()
         self.publisher_ = self.create_publisher(Float32, 'chessboard/joint0', 10)
-        timer_period = 0.1  # seconds
-        self.timer = self.create_timer(timer_period, self.timer_callback_joint0)
+        # timer_period = 0.1  # seconds
+        # self.timer = self.create_timer(timer_period, self.timer_callback_joint0)
 
         self.encoder = self.create_publisher(Float32, '/chessboard/encoder', 10)
-        timer_period = 0.1  # seconds
-        self.timer = self.create_timer(timer_period, self.timer_callback_encoder)
+        # timer_period = 0.1  # seconds
+        # self.timer = self.create_timer(timer_period, self.timer_callback_encoder)
         self.time23 = None
 
         #command_cluster_lock , command_pose_lock
@@ -163,7 +163,7 @@ class GameController(Node):
         self.get = False
         self.TimeBefore = time.time()
         self.connect_pyserial(com="/dev/ttyUSB0")
-        timer_period = 1 / 100  # seconds
+        timer_period = 1 / 30  # seconds
         self.timer = self.create_timer(timer_period, self.timer_callback)
         # self.run()
         self.camera_timer = self.create_timer(1/10, self.camera_callback)
@@ -469,34 +469,42 @@ class GameController(Node):
 
 
         data = self.data_sock.ReadReceivedData()  # read data
-        if (time.time() - self.TimeBefore >= 0.05):
-            self.TimeBefore = time.time()
-            if self.pyserial_connected:
-                status = str(self.narwhal.ReadAll())
-                status = status.replace("[", "")
-                status = status.replace("]", "")
-                status = status.replace(",", "")
-                status_unpack = status.split(" ")
-                self.status[0:5] = status_unpack[3:8]
-                self.status[5:8] = status_unpack[13:16]
-                self.status[8:11] = status_unpack[17:20]
-                self.chess_data = status_unpack[0]
-                # print(status_unpack[13:16])
-                if status_unpack[16] == "0":
-                    if(self.robotmode != 1):
-                        self.data_sock.SendData("ALPHA 0")
-                        self.data_sock.SendData("ROBOT IDLE")
-                        print(self.robotmode)
-                    self.robotmode = 1
-                else:
-                    if (self.robotmode != 0):
-                        self.data_sock.SendData("ALPHA 1")
-                        self.data_sock.SendData("ROBOT MOVING")
-                        print(self.robotmode)
-                    self.robotmode = 0
+        # if (time.time() - self.TimeBefore >= 0.03):
+        #     self.TimeBefore = time.time()
+        if self.pyserial_connected:
+            status = str(self.narwhal.ReadAll())
+            status = status.replace("[", "")
+            status = status.replace("]", "")
+            status = status.replace(",", "")
+            status_unpack = status.split(" ")
+            self.status[0:5] = status_unpack[3:8]
+            self.status[5:8] = status_unpack[13:16]
+            self.status[8:11] = status_unpack[17:20]
+            ## publish joint0 state ##
+            msg = Float32()
+            msg.data = float(self.status[0])
+            self.publisher_.publish(msg)
+            ## publish encoder state ##
+            msg = Float32()
+            msg.data = float(status_unpack[0])
+            self.encoder.publish(msg)
+            # self.chess_data = status_unpack[0]
+            # print(status_unpack[13:16])
+            if status_unpack[16] == "0":
+                if(self.robotmode != 1):
+                    self.data_sock.SendData("ALPHA 0")
+                    self.data_sock.SendData("ROBOT IDLE")
+                    print(self.robotmode)
+                self.robotmode = 1
+            else:
+                if (self.robotmode != 0):
+                    self.data_sock.SendData("ALPHA 1")
+                    self.data_sock.SendData("ROBOT MOVING")
+                    print(self.robotmode)
+                self.robotmode = 0
 
-                status = "status " + status
-                self.data_sock.SendData(status)
+            status = "status " + status
+            self.data_sock.SendData(status)
         if data != None:  # if NEW data has been received since last ReadReceivedData function call
             self.get_logger().info('Publishing: "%s"' % data)
             dl = data.split(" ")

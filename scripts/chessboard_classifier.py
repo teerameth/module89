@@ -243,7 +243,7 @@ class ChessboardClassifier(Node):
         self.clustering = None
         self.clustering_lock = False
         self.clustering_flip = False
-        print("CHESSBOARD CLASSIFIER READY!!")
+        self.get_logger().info("CHESSBOARD CLASSIFIER READY!!")
     def chessboard_pose_top_callback(self, img_pose):
         # frame = self.bridge.imgmsg_to_cv2(img_pose.image, desired_encoding='passthrough')
         # self.get_logger().info(str(get_tile(img_pose)))

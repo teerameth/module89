@@ -65,10 +65,9 @@ confidence_treshold = 0.03
 obj_points = np.array([[-0.2, -0.23, 0], [0.2, -0.23, 0], [0.2, 0.23, 0], [-0.2, 0.23, 0]])
 
 model_config = simplejson.load(open(os.path.join(get_package_share_directory('module89'), 'config', 'model_config.json')))
-model_path = model_config['dope']
-# model_path = os.path.join(get_package_share_directory('module89'), 'models', 'chessboard.onnx')
+model_path = os.path.join(model_config['base_path'], model_config['dope'])
 # TensorrtExecutionProvider having the higher priority.
-# ort_sess = ort.InferenceSession(model_path, providers=['TensorrtExecutionProvider', 'CUDAExecutionProvider'])
+ort_sess = ort.InferenceSession(model_path, providers=['TensorrtExecutionProvider', 'CUDAExecutionProvider'])
 
 def NHWC2NCHW(img):
     # convert from NHWC to NCHW (batch N, channels C, height H, width W)
@@ -131,6 +130,7 @@ class ChessboardTracker(Node):
         self.camera_lock = [False, False]
         self.camera_lock_pose = [None, None]
         self.chessboard_lock_encoder = [None, None]
+        self.assign_corner_status = False
 
         self.hand_in_frame = [False, False]
         self.robot_in_frame = False
@@ -212,57 +212,60 @@ class ChessboardTracker(Node):
                         angle = pose2view_angle(rvec.reshape((1, 3)), tvec.reshape((1, 3)))
                         img_pose_msg.image = self.bridge.cv2_to_imgmsg(image_480p, "bgr8")
                         # canvas_belief_list.append(np.zeros((480, 640, 3), dtype=np.uint8))
-                # else:   # Real-time detection (not locked)
-                #     x = NHWC2NCHW(image_480p)
-                #     outputs = ort_sess.run(None, {'input': x})  # outputs.shape = (1, 4, 60, 80)
-                #     outputs = outputs[0][0]
-                #
-                #     # outputs_buffer = []
-                #     # for output in outputs:  # normalize to (0, 1)
-                #     #     outputs_buffer.append((output - np.min(output)) / (np.max(output) - np.min(output)))
-                #     # outputs = outputs_buffer
-                #
-                #     overlay = np.zeros(outputs[0].shape, dtype=np.float32)
-                #     for j in range(4): overlay += outputs[i]
-                #     overlay = cv2.cvtColor(overlay, cv2.COLOR_GRAY2BGR)
-                #     overlay = np.array(overlay * 255, dtype=np.uint8)
-                #     overlay = imutils.resize(overlay, height=image_480p.shape[0])
-                #     canvas_belief = cv2.addWeighted(image_480p, 0.3, overlay, 0.7, 0)
-                #     canvas_belief_list.append(canvas_belief)
-                #     points, vals = FindMax(outputs)
-                #     confidences_msg = Float32MultiArray()
-                #     confidences_msg.data = vals
-                #     if i == 0: self.top_pose_confidence_pub.publish(confidences_msg)
-                #     else: self.side_pose_confidence_pub.publish(confidences_msg)
-                #     confidences = [False if val < confidence_treshold else True for val in vals]
-                #     for j in range(4): cv2.circle(canvas_pose, (points[i][0] * 8, points[i][1] * 8), 3, (255, 0, 0), -1)
-                #     if not False in confidences:    # Confident to estimate pose
-                #         img_points = np.array([points[0], points[1], points[2], points[3]], dtype=np.double) * 8
-                #         # map points 480p -> 1080p
-                #         # scale = 1080 / 480
-                #         # img_points = np.array([((point[0] + 106) * scale, point[1] * scale) for point in img_points],
-                #         #                       dtype=np.double)
-                #         # print(img_points)
-                #         ret, rvec, tvec = cv2.solvePnP(objectPoints=obj_points,
-                #                                        imagePoints=img_points,
-                #                                        cameraMatrix=cameraMatrix,
-                #                                        distCoeffs=dist,
-                #                                        flags=0)
-                #         img_pose_msg = ChessboardImgPose()
-                #         img_pose_msg.pose = preparePose(rvec, tvec)
-                #         angle = pose2view_angle(rvec.reshape((1, 3)), tvec.reshape((1, 3)))
-                #         img_pose_msg.image = self.bridge.cv2_to_imgmsg(image, "bgr8")
-                #         # Store in buffer (for locking purpose)
-                #         self.camera_lock_pose[i] = (rvec, tvec)
-                #     else:   # Unable to estimate pose
-                #         pass
-                # select topic to publish by view angle
-                if img_pose_msg:
-                    if not self.hand_in_frame[0] and \
-                        not self.hand_in_frame[1] and \
-                        not self.robot_in_frame:
-                        pose_pub = self.top_pose_pub if angle < 0.2 else self.side_pose_pub
+                ########################
+                ### DOPE PART ###
+                ########################
+                else:   # Real-time detection (not locked)
+                    x = NHWC2NCHW(image_480p)
+                    outputs = ort_sess.run(None, {'input': x})  # outputs.shape = (1, 4, 60, 80)
+                    outputs = outputs[0][0]
 
+                    # outputs_buffer = []
+                    # for output in outputs:  # normalize to (0, 1)
+                    #     outputs_buffer.append((output - np.min(output)) / (np.max(output) - np.min(output)))
+                    # outputs = outputs_buffer
+
+                    overlay = np.zeros(outputs[0].shape, dtype=np.float32)
+                    for j in range(4): overlay += outputs[i]
+                    overlay = cv2.cvtColor(overlay, cv2.COLOR_GRAY2BGR)
+                    overlay = np.array(overlay * 255, dtype=np.uint8)
+                    overlay = imutils.resize(overlay, height=image_480p.shape[0])
+                    canvas_belief = cv2.addWeighted(image_480p, 0.3, overlay, 0.7, 0)
+                    canvas_belief_list.append(canvas_belief)
+                    points, vals = FindMax(outputs)
+                    confidences_msg = Float32MultiArray()
+                    confidences_msg.data = vals
+                    if i == 0: self.top_pose_confidence_pub.publish(confidences_msg)
+                    else: self.side_pose_confidence_pub.publish(confidences_msg)
+                    confidences = [False if val < confidence_treshold else True for val in vals]
+                    for j in range(4): cv2.circle(canvas_pose, (points[i][0] * 8, points[i][1] * 8), 4, (0, 255, 0), -1)
+                    if not False in confidences:    # Confident to estimate pose
+                        img_points = np.array([points[0], points[1], points[2], points[3]], dtype=np.double) * 8
+                        # map points 480p -> 1080p
+                        # scale = 1080 / 480
+                        # img_points = np.array([((point[0] + 106) * scale, point[1] * scale) for point in img_points],
+                        #                       dtype=np.double)
+                        # print(img_points)
+                        ret, rvec, tvec = cv2.solvePnP(objectPoints=obj_points,
+                                                       imagePoints=img_points,
+                                                       cameraMatrix=cameraMatrix,
+                                                       distCoeffs=dist,
+                                                       flags=0)
+                        img_pose_msg = ChessboardImgPose()
+                        img_pose_msg.pose = preparePose(rvec, tvec)
+                        angle = pose2view_angle(rvec.reshape((1, 3)), tvec.reshape((1, 3)))
+                        img_pose_msg.image = self.bridge.cv2_to_imgmsg(image, "bgr8")
+                        # Store in buffer (for locking purpose)
+                        self.camera_lock_pose[i] = (rvec, tvec)
+                    else:   # Unable to estimate pose
+                        pass
+                ########################
+                ### END OF DOPE PART ###
+                ########################
+                # select topic to publish by view angle
+                if img_pose_msg is not None:
+                    if not self.hand_in_frame[0] and not self.hand_in_frame[1] and not self.robot_in_frame:
+                        pose_pub = self.top_pose_pub if angle < 0.2 else self.side_pose_pub
                         pose_pub.publish(img_pose_msg)
                     cv2.rectangle(canvas_pose, (0, 0), (200, 80), (255, 255, 255), -1)
                     absolute_distance = sum([tvec[k]**2 for k in range(len(tvec))])
@@ -304,6 +307,7 @@ class ChessboardTracker(Node):
             cv2.imshow("Pose Estimation", imutils.resize(canvas, height=900))
             key = cv2.waitKey(1)
             if key == ord('1') or key == ord('2'):
+                self.assign_corner_status = True
                 four_points = []
                 if key == ord('1'):
                     corner_assign_mode = 1
@@ -331,8 +335,9 @@ class ChessboardTracker(Node):
                     self.camera_lock_pose[1] = (rvec, tvec)
                     self.chessboard_lock_encoder[1] = self.chessboard_encoder
                     self.camera_lock[1] = True
+                self.assign_corner_status = False
                 cv2.destroyWindow('Assign Corner')
-        if canvas4point_tmp is not None:
+        if canvas4point_tmp is not None and self.assign_corner_status:
             cv2.imshow('Assign Corner', canvas4point_tmp)
         cv2.waitKey(1)
         # print(time.time() - time_stamp)
@@ -345,7 +350,7 @@ class ChessboardTracker(Node):
             response.acknowledge = 1
         if mode == 1 or mode == 2:
             img_points = request.corners.data
-            print(img_points)
+            self.get_logger().info(str(img_points))
             img_points = np.array(img_points, dtype=np.float32).reshape((-1, 2))
             ret, rvec, tvec = cv2.solvePnP(objectPoints=obj_points,
                                            imagePoints=img_points,
