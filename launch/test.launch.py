@@ -11,6 +11,25 @@ def generate_launch_description():
     return LaunchDescription([
         Node(
             package='module89',
+            executable='camera.py',
+            name='camera0',
+            parameters=[{
+                'name': 0,
+                'id': 0,
+            }],
+        ),
+
+        Node(
+            package='module89',
+            executable='camera.py',
+            name='camera1',
+            parameters=[{
+                'name': 1,
+                'id': 2,
+            }],
+        ),
+        Node(
+            package='module89',
             executable='chessboard_tracker.py',
             name='chessboard_tracker'
         ),
@@ -18,33 +37,5 @@ def generate_launch_description():
             package='module89',
             executable='chessboard_classifier.py',
             name='chessboard_classifier'
-        ),
-        Node(
-            package='module89',
-            executable='camera.py',
-            name='camera0',
-            parameters=[{
-                'id': 0,
-            }],
-        ),
-        Node(
-            package='module89',
-            executable='camera.py',
-            name='camera1',
-            parameters=[{
-                'id': 1,
-            }],
-        ),
-        Node(
-            package='module89',
-            executable='hand_detector.py',
-            name='hand_detector',
-        ),
-        # Node(
-        #     package='module89',
-        #     executable='chessboard_detector_fake.py',
-        #     name='chessboard_detector_fake'
-        # ),
-
-
+        )
     ])

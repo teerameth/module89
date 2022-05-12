@@ -173,7 +173,7 @@ class GameController(Node):
             if self.save_state != 2:
                 self.save_state = 2
                 self.data_sock.SendData("AI READY")
-        if msg.data == 1:
+        elif msg.data == 1:
             if self.save_state != 1:
                 self.save_state = 1
                 self.data_sock.SendData("AI COMPUTE")
@@ -185,6 +185,7 @@ class GameController(Node):
 
 
     def ai_bestmove_callback(self,msg):
+        # print(self.get_ready, self.autoplay_mode, self.robotmode)
         if self.get_ready and self.autoplay_mode and self.robotmode == 1:
             self.autoplay_fen = str(self.chessboard_fen)
             self.ai_move = msg.data
