@@ -57,7 +57,7 @@ class PseudoStateController(Node):
         self.execute_bestmove_srv = self.create_service(ExecuteBestMove, 'execute_bestmove', self.execute_bestmove_callback)
         self.setting_srv = self.create_service(PseudoBoardSetup, 'pseudo_board_setup', self.setup_callback)
 
-        self.board = chess.Board("rnbqkbnr/pppp1p1p/8/4p1p1/5P2/8/PPPPP1PP/RNBQKBNR w KQkq - 0 1")  # init Board() object
+        self.board = chess.Board()  # init Board() object
         self.fen_binary_old = fen2binary(self.board.fen())
         self.fen_binary = None
         self.fen_color = None
@@ -67,6 +67,7 @@ class PseudoStateController(Node):
         self._AI_ready = 0  # 0=Idle, 1=Busy, 2=Ready
         self.best_move = None
         self.illegal_move = False
+        self.first_turn = True
     @property
     def AI_turn(self):      # AI turn status
         return True if self.AI_side == self.turn else False
@@ -82,10 +83,11 @@ class PseudoStateController(Node):
         self._AI_ready = ready
     def any_change(self):
         if self.fen_binary is None: return False  # Not recieved fen_binary yet
-        if (self.fen_binary == self.fen_binary_old).all(): return False # no change yet
+        if (self.fen_binary == self.fen_binary_old).all():
+            return False # no change yet
         else: return True
     def valid_move(self):  # search for matched binary from legal move and return (valid, move_obj)
-        if self.fen_binary is None: return False, None  # Not recieved fen_binary yet
+        if self.fen_binary is None or self.fen_color is None: return False, None  # Not recieved fen_binary yet
         for legal_move in self.board.legal_moves:
             self.board.push(legal_move)
             candidate_binary = fen2binary(self.board.fen())
@@ -105,24 +107,35 @@ class PseudoStateController(Node):
 
     def fen_binary_callback(self, fen_binary):  # Main state machine controller
         self.fen_binary = np.array(fen_binary.data, dtype=np.uint8).reshape((8, 8))
-        # consider only in human turn
-        if self.human_turn:
-            if self.any_change() and self.fen_color is not None:   # Detect movement in fen_binary
-                ret, truemove = self.valid_move()
-                if ret: # change came from valid move
-                    self.illegal_move = False
-                    self.turn = not self.turn   # Change turn from Human -> AI
-                    self.AI_ready = 1           # Change AI state to busy
-                    self.board.push(truemove)   # push board with truemove
-                    self.fen_binary_old = fen2binary(self.board.fen())  # update old binary after Human move
-                    self.get_logger().info("Update board state to:\n{}".format(str(self.board)))
-                    ## Start searching ##
-                    result = engine.play(self.board, limit)
-                    self.best_move = result.move
-                    self.AI_bestmove_pub.publish(String(data=self.best_move.uci()))   # publish bestmove before set status to ready
-                    self.AI_ready = 2  # Change AI state to ready
-                else:   # change came from illegal move
-                    self.illegal_move = True
+        # consider only in human turn or first turn of white AI
+        AI_first_turn = self.first_turn and self.AI_turn
+        if AI_first_turn: # First turn of White AI
+            self.get_logger().info("Update board state to:\n{}".format(str(self.board)))
+            self.AI_ready = 1  # Change AI state to busy
+            ## Start searching ##
+            result = engine.play(self.board, limit)
+            self.best_move = result.move
+            self.AI_bestmove_pub.publish(String(data=self.best_move.uci()))  # publish bestmove before set status to ready
+            self.AI_ready = 2  # Change AI state to ready
+            self.first_turn = False
+        else:
+            if self.human_turn:
+                if self.any_change() and self.fen_color is not None:   # Detect movement in fen_binary
+                    ret, truemove = self.valid_move()
+                    if ret or AI_first_turn: # change came from valid move
+                        self.illegal_move = False
+                        self.turn = not self.turn   # Change turn from Human -> AI
+                        self.AI_ready = 1           # Change AI state to busy
+                        self.board.push(truemove)   # push board with truemove
+                        self.fen_binary_old = fen2binary(self.board.fen())  # update old binary after Human move
+                        self.get_logger().info("Update board state to:\n{}".format(str(self.board)))
+                        ## Start searching ##
+                        result = engine.play(self.board, limit)
+                        self.best_move = result.move
+                        self.AI_bestmove_pub.publish(String(data=self.best_move.uci()))   # publish bestmove before set status to ready
+                        self.AI_ready = 2  # Change AI state to ready
+                    else:   # change came from illegal move
+                        self.illegal_move = True
     def fen_color_callback(self, fen_color):
         self.fen_color = np.array(fen_color.data, dtype=np.uint8).reshape((8, 8))
     def execute_bestmove_callback(self, request, response):
@@ -163,6 +176,7 @@ class PseudoStateController(Node):
         return response
     def setup_callback(self, request, response):
         self.AI_side = request.ai_is
+        print(self.AI_side)
         return response
     # def camera0_hand_callback(self, hand):
     #     if hand.data and self.turn == self.human_turn: self.hand_detected = True # only updated in human turn

@@ -2,7 +2,7 @@
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String
-from std_msgs.msg import Float32,UInt8
+from std_msgs.msg import Float32,UInt8,Int64
 from module89.srv import StringMessage
 from module89.srv import ClusterLock
 from module89.srv import PoseLock
@@ -11,6 +11,7 @@ from cv_bridge import CvBridge
 from std_msgs.msg import UInt16MultiArray
 from sensor_msgs.msg import Image
 from module89.srv import ExecuteBestMove
+from module89.srv import PseudoBoardSetup
 #Communication
 import time
 import UdpComms as U
@@ -39,7 +40,7 @@ class GameController(Node):
     def __init__(self):
         super().__init__('game_controller')
         self.pyserial_connected = False
-        ip = "192.168.100.240"
+        ip = "127.0.0.1"
         self.data_sock = U.UdpComms(udpIP=ip, portTX=8000, portRX=8001, enableRX=True, suppressWarnings=True) #Main Communication
         self.q1 = float(0)
         self.q2= float(0)
@@ -53,7 +54,7 @@ class GameController(Node):
         self.name = ['q1', 'q2', 'q3', 'q4', 'x', 'y', 'z']
         self.waitMove = False
         self.robotmode = 0
-        self.move_buffer = [0,0,0]
+        self.move_buffer = [0,0,0,0,0,0]
         self.time_delay = 0
         self.chessboard_fen = ""
         self.first_move = True
@@ -63,6 +64,10 @@ class GameController(Node):
         self.camera0_frame = None
         self.camera1_frame = None
         self.ai_ready = None
+        self.autoplay_mode = None
+        self.autoplay_fen = None
+        self.readyStart = False
+        self.piece_height_type = [0.08,0.0731,0.0615,0.048,0.045,0.055]
         # self.img_sock1 = U.UdpComms(udpIP=ip, portTX=8002,portRX=8001, suppressWarnings=True) # Image1 Socket-
         # self.img_sock2 = U.UdpComms(udpIP=ip, portTX=8003,portRX=8001, suppressWarnings=True) # Image2 Socket
         # self.image_bytes = cv2.imencode('.jpg', cv2.imread("2.jpg"))[1].tobytes()
@@ -121,6 +126,12 @@ class GameController(Node):
         self.bestmove_req = FindBestMove.Request()
         self.bestmove_get = False
 
+        self.pseudoboardsetup_cli = self.create_client(PseudoBoardSetup, 'pseudo_board_setup')
+        # while not self.bestmove_cli.wait_for_service(timeout_sec=1.0):
+        #     self.get_logger().info('service not available, waiting again...')
+        self.pseudoboardsetup_req = PseudoBoardSetup.Request()
+        self.pseudoboardsetup_get = False
+
         # self.fen_cli = self.create_client(StringMessage, 'fen')
         # while not self.fen_cli.wait_for_service(timeout_sec=1.0):
         #     self.get_logger().info('service not available, waiting again...')
@@ -145,6 +156,7 @@ class GameController(Node):
         self.cluster_lock_get = False
         self.get_ready = False
         self.ai_move = None
+        self.save_state = 0
 
 
 
@@ -158,19 +170,137 @@ class GameController(Node):
     def ai_stat_callback(self,msg):
         if msg.data == 2 and not self.get_ready:
             self.get_ready = True
+            if self.save_state != 2:
+                self.save_state = 2
+                self.data_sock.SendData("AI READY")
+        if msg.data == 1:
+            if self.save_state != 1:
+                self.save_state = 1
+                self.data_sock.SendData("AI COMPUTE")
+        else:
+            if self.save_state != 0:
+                self.save_state = 0
+                self.data_sock.SendData("AI TRACKING")
+            self.get_ready = False
 
 
     def ai_bestmove_callback(self,msg):
-        if self.get_ready:
-            self.ai_ready = True
+        if self.get_ready and self.autoplay_mode and self.robotmode == 1:
+            self.autoplay_fen = str(self.chessboard_fen)
             self.ai_move = msg.data
             self.get_ready = False
+            board = [[]]
+            board_row = 0
+            alphabet = "abcdefgh"
+            piece_type = "KQBNRP"
+            move = self.ai_move
+            for i in self.autoplay_fen:
+                if i == "/":
+                    board_row += 1
+                    board.append([])
+                    continue
+                if i.isnumeric():
+                    for j in range(int(i)):
+                        board[board_row].append('*')
+                    continue
+                board[board_row].append(i)
+            if board[7 - (int(move[1]) - 1)][alphabet.index(move[0])].lower() == "p":
+                if(move[0] != move[2]):
+                    if board[7 - (int(move[3]) - 1)][alphabet.index(move[2])].lower() == "*":
+                        print("enpassant")
+                        # ((int(move[1])))*8 + (alphabet.index(move[2])),65,typep
+                        self.narwhal.MoveChess(((int(move[1]))-1)*8 + (alphabet.index(move[2])), 64, self.piece_height_type[5])
+                        self.time_delay = time.time()
+                        self.move_buffer[0], self.move_buffer[1], self.move_buffer[2] = ((int(move[1])-1))*8 + (alphabet.index(move[0])), ((int(move[3])-1)) * 8 + (alphabet.index(move[2])), self.piece_height_type[5]
+                        self.waitMove = True
+                        # board[7 - (int(move[1]) - 1)][alphabet.index(move[2])] = "69"  # REMOVE
+                    else:
+                        self.narwhal.MoveChess(((int(move[3])) - 1) * 8 + (alphabet.index(move[2])), 64,
+                                               self.piece_height_type[5])
+                        self.time_delay = time.time()
+                        self.move_buffer[0], self.move_buffer[1], self.move_buffer[2] = ((int(move[1])) - 1) * 8 + (alphabet.index(move[0])), ((int(move[3])) - 1) * 8 + (alphabet.index(move[2])),self.piece_height_type[piece_type.index(board[7 - (int(move[1]) - 1)][alphabet.index(move[0])].upper())]
+                        self.waitMove = True
+                else:
+
+                    self.narwhal.MoveChess(((int(move[1])) - 1) * 8 + (alphabet.index(move[0])), ((int(move[3])) - 1) * 8 + (alphabet.index(move[2])),self.piece_height_type[piece_type.index(board[7 - (int(move[1]) - 1)][alphabet.index(move[0])].upper())])
+
+            elif board[7 - (int(move[1]) - 1)][alphabet.index(move[0])].lower() == "k":
+                if abs(alphabet.index(move[0]) - alphabet.index(move[2])) == 2:
+                    print("castling")
+                    if alphabet.index(move[0]) - alphabet.index(move[2]) == 2:
+                        # print("MOVE" + str((move[1]-1)*8) +" " + str(((move[1]-1)*8)+(alphabet.index(move[0])-1))+ " " + str(self.piece_height_type[4]))
+                        # self.narwhal.MoveChess((move[1]-1)*8,((move[1]-1)*8)+(alphabet.index(move[0])-1),self.piece_height_type[4])
+                        # self.time_delay = time.time()
+                        # self.move_buffer[0], self.move_buffer[1], self.move_buffer[2] = (((int(move[1])) - 1) * 8 + (alphabet.index(move[0]))),((int(move[3])) - 1) * 8 + (alphabet.index(move[2])), self.piece_height_type[0]
+                        # self.waitMove = True
+
+                        # MOVE 0 kingx -1
+
+                        # self.narwhal.MoveChess(dl[1], dl[2], dl[3])
+                        # self.move_buffer[0], self.move_buffer[1], self.move_buffer[2] = dl[4], dl[5], dl[6]
+                        # self.waitMove = True
+                        # self.time_delay = time.time()
+                        pass
+                    elif alphabet.index(move[0]) - alphabet.index(move[2]) == -2:
+                        # print(((int(move[1]) - 1) * 8)+7, ((int(move[1]) - 1) * 8) + (alphabet.index(move[0])+1),self.piece_height_type[4])
+
+                        self.narwhal.MoveChess(((int(move[1]) - 1) * 8)+7, ((int(move[1]) - 1) * 8) + (alphabet.index(move[0])+1),
+                                               self.piece_height_type[4])
+                        self.time_delay = time.time()
+                        self.move_buffer[0], self.move_buffer[1], self.move_buffer[2] = (((int(move[1])) - 1) * 8 + (
+                            alphabet.index(move[0]))), ((int(move[3])) - 1) * 8 + (alphabet.index(move[2])), \
+                                                                                        self.piece_height_type[0]
+                        self.waitMove = True
+                else:
+                    if board[7 - (int(move[3]) - 1)][alphabet.index(move[2])].lower() != "*":
+                        self.narwhal.MoveChess(((int(move[3])) - 1) * 8 + (alphabet.index(move[2])),
+                                               64, self.piece_height_type[
+                                                   piece_type.index(
+                                                       board[7 - (int(move[3]) - 1)][alphabet.index(move[2])].upper())])
+                        self.time_delay = time.time()
+                        self.move_buffer[0], self.move_buffer[1], self.move_buffer[2] = ((int(move[1])) - 1) * 8 + (
+                            alphabet.index(move[0])), ((int(move[3])) - 1) * 8 + (alphabet.index(move[2])), \
+                                                                                        self.piece_height_type[
+                                                                                            piece_type.index(
+                                                                                                board[7 - (int(
+                                                                                                    move[1]) - 1)][
+                                                                                                    alphabet.index(move[
+                                                                                                                       0])].upper())]
+                        self.waitMove = True
+                    else:
+                        self.narwhal.MoveChess(((int(move[1])) - 1) * 8 + (alphabet.index(move[0])),
+                                               ((int(move[3])) - 1) * 8 + (alphabet.index(move[2])),
+                                               self.piece_height_type[
+                                                   piece_type.index(
+                                                       board[7 - (int(move[1]) - 1)][alphabet.index(move[0])].upper())])
+            else:
+                if board[7 - (int(move[3]) - 1)][alphabet.index(move[2])].lower() != "*":
+                    self.narwhal.MoveChess( ((int(move[3])) - 1) * 8 + (alphabet.index(move[2])),
+                                      64, self.piece_height_type[
+                                           piece_type.index(
+                                               board[7 - (int(move[3]) - 1)][alphabet.index(move[2])].upper())])
+                    self.time_delay = time.time()
+                    self.move_buffer[0], self.move_buffer[1], self.move_buffer[2] = ((int(move[1])) - 1) * 8 + (alphabet.index(move[0])),((int(move[3])) - 1) * 8 + (alphabet.index(move[2])), self.piece_height_type[
+                                               piece_type.index(
+                                                   board[7 - (int(move[1]) - 1)][alphabet.index(move[0])].upper())]
+                    self.waitMove = True
+                else:
+                    self.narwhal.MoveChess(((int(move[1])) - 1) * 8 + (alphabet.index(move[0])),
+                                           ((int(move[3])) - 1) * 8 + (alphabet.index(move[2])), self.piece_height_type[
+                                               piece_type.index(
+                                                   board[7 - (int(move[1]) - 1)][alphabet.index(move[0])].upper())])
+            self.time23 = time.time()
+
+
+
+
+
 
     def camera_callback(self):
         global four_points,pressmode,canvas,canvas_tmp
         if self.camera0_frame is not None and self.camera1_frame is not None:
-            cv2.imshow("camera0",self.camera0_frame)
-            cv2.imshow("camera1",self.camera1_frame)
+            # cv2.imshow("camera0",self.camera0_frame)
+            # cv2.imshow("camera1",self.camera1_frame)
             key = cv2.waitKey(1)
             if key == ord('1') or key == ord('2'):
                 four_points = []
@@ -217,6 +347,11 @@ class GameController(Node):
          self.execute_bestmove_req.move = msg
          self.execute_bestmove_future = self.execute_bestmove_cli.call_async(self.execute_bestmove_req)
 
+    def swapSide(self,side):
+        # msg = Int64()
+        # msg.data = int(side)
+        self.pseudoboardsetup_req.ai_is = int(side)
+        self.pseudoboardsetup_future = self.pseudoboardsetup_cli.call_async(self.pseudoboardsetup_req)
 
 
     def bestmove_request(self,fen):
@@ -305,11 +440,13 @@ class GameController(Node):
                 else:
                     self.execute_bestmove_get = False
                     # self.data_sock.SendData(response.acknowledge)
-        if(time.time() - self.time_delay >=2):
+
+        if(time.time() - self.time_delay >=5):
             if self.waitMove:
                 if self.robotmode == 1:
                     self.waitMove = False
                     self.narwhal.MoveChess(self.move_buffer[0],self.move_buffer[1],self.move_buffer[2])
+
                     self.move_buffer[0],self.move_buffer[1],self.move_buffer[2] = 0,0,0
         if(time.time() - self.timer_before_movechess > self.wait_time and not self.first_move ):
             print("after 5")
@@ -348,11 +485,13 @@ class GameController(Node):
                 if status_unpack[16] == "0":
                     if(self.robotmode != 1):
                         self.data_sock.SendData("ALPHA 0")
+                        self.data_sock.SendData("ROBOT IDLE")
                         print(self.robotmode)
                     self.robotmode = 1
                 else:
                     if (self.robotmode != 0):
                         self.data_sock.SendData("ALPHA 1")
+                        self.data_sock.SendData("ROBOT MOVING")
                         print(self.robotmode)
                     self.robotmode = 0
 
@@ -378,12 +517,18 @@ class GameController(Node):
                     self.ai_ready = False
             elif dl[0] == "FEN":
                 self.bestmove_request(dl[1] + " " + dl[2])
+            elif dl[0] == "ABC":
+                self.readyStart = True
             elif dl[0] == "PYSERIAL":
                 self.connect_pyserial()
             elif dl[0] == "POSE":
                 self.pose_lock_request(int(dl[1]))
             elif dl[0] == "CLUSTER":
                 self.cluster_lock_request(int(dl[1]),int(dl[2]))
+            elif dl[0] == "SWAP":
+                self.swapSide(int(dl[1]))
+            elif dl[0] == "AUTOPLAY":
+                self.autoplay_mode = bool(dl[1])
             elif dl[0] == "MOVE":
                 if self.first_move:
                     self.first_move = False

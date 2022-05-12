@@ -94,6 +94,7 @@ install(PROGRAMS
   scripts/UdpComms.py
   scripts/Communication.py
   scripts/pseudo_state.py
+  scripts/chessai_fake.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
