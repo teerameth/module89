@@ -267,3 +267,5 @@ class Communication:
     def Close(self):
         self.ser.close()
 
+if __name__ == "__main__":
+    com = Communication(port="/dev/ttyUSB0")

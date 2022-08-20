@@ -81,6 +81,7 @@ install(PROGRAMS
   scripts/chessboard_locator_dope.py
   scripts/chessboard_classifier.py
   scripts/chessboard_encoder_fake.py
+  scripts/chessboard_estimator.py
   scripts/chess_engine.py
   scripts/chess_client.py
   scripts/hand_detector.py

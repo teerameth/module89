@@ -29,3 +29,7 @@ pip install -r requirements.txt
 
 ## Upgrade torchvision to 0.11
 pip install --upgrade torchvision
+
+## Serial udev rule (bind serial port as /dev/Narwhal)
+sudo nano /etc/udev/rules.d/99-usb-serial.rules
+SUBSYSTEM=="tty", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6001", ATTRS{serial}=="ANZ25FFJ", SYMLINK+="Narwhal"
