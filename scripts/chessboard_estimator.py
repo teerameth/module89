@@ -1,17 +1,14 @@
 #!/usr/bin/env -S HOME=${HOME} ${HOME}/openvino_env/bin/python
 import os.path
 
-import PyQt5
 import sys
-
-import imutils
 from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QPushButton, QVBoxLayout
+from PyQt5.QtWidgets import QApplication, QLabel, QPushButton, QVBoxLayout
 from PyQt5.QtGui import QPixmap
 
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import Int32
+from std_msgs.msg import UInt8MultiArray
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
 
@@ -21,20 +18,35 @@ import numpy as np
 import random
 import mediapipe as mp
 from camera import Camera
+from openvino.runtime import Core, Layout, Type
+
 # obj_points = np.array([[-0.2, -0.23, 0], [0.2, -0.23, 0], [0.2, 0.23, 0], [-0.2, 0.23, 0]])
 obj_points = np.array([[-0.2, -0.2, 0], [0.2, -0.2, 0], [0.2, 0.2, 0], [-0.2, 0.2, 0]])
-cameraMatrix = np.array([[1395.3709390074625, 0.0, 984.6248356317226], [0.0, 1396.2122002126725, 534.9517311724618], [0.0, 0.0, 1.0]], np.float32) # Humanoid
-dist = np.array([[0.1097213194870457, -0.1989645299789654, -0.002106454674127449, 0.004428959364733587, 0.06865838341764481]]) # Humanoid
+# C922
+# cameraMatrix = np.array([[1395.3709390074625, 0.0, 984.6248356317226], [0.0, 1396.2122002126725, 534.9517311724618], [0.0, 0.0, 1.0]], np.float32) # Humanoid
+# dist = np.array([[0.1097213194870457, -0.1989645299789654, -0.002106454674127449, 0.004428959364733587, 0.06865838341764481]]) # Humanoid
+# C930e
+cameraMatrix = np.array([[1176.3318391347427, 0.0, 933.6507321953259], [0.0, 1173.600391970806, 544.8869859448852], [0.0, 0.0, 1.0]], np.float32)
+dist = np.array([[0.08051354728224885, -0.17305343907163906, 0.0006471377956487211, 0.0002086472663196551, 0.06817438846344685]])
 export_size = 224
 chess_piece_height = {"king": (0.081, 0.097), "queen": (0.07, 0.0762), "bishop": (0.058, 0.065), "knight": (0.054, 0.05715), "rook": (0.02845, 0.048), "pawn": (0.043, 0.045)}
 chess_piece_diameter = {"king": (0.028, 0.0381), "queen": (0.028, 0.0362), "bishop": (0.026, 0.032), "knight": (0.026, 0.03255), "rook": (0.026, 0.03255), "pawn": (0.0191, 0.02825)}
 mask_contour_index_list = [[0, 1, 2, 3], [4, 5, 6, 7], [0, 1, 5, 4], [1, 2, 6, 5], [2, 3, 7, 6], [3, 0, 4, 7]]
-scan_box_height = min(chess_piece_height['king'])
+scan_box_height = min(chess_piece_height['king'])   # reference height for cuboid zero-padding
+model_path_binary = "/home/fiborobotlab/models/classification/chess/MobileNetV2_binary/saved_model"
+model_path_color = "/home/fiborobotlab/models/classification/chess/MobileNetV2_color/saved_model"
 
+ie = Core()
+model_binary = ie.read_model(model=model_path_binary+".xml", weights=model_path_binary+".bin")
+model_color = ie.read_model(model=model_path_color+".xml", weights=model_path_color+".bin")
+model_binary.reshape([64, 224, 224, 3]) # set input as fixed batch
+compiled_model_binary = ie.compile_model(model_binary, "GPU", {"PERFORMANCE_HINT": "THROUGHPUT"})
+infer_request_binary = compiled_model_binary.create_infer_request()
+
+# Load mediapipe hand detection model
 mp_drawing = mp.solutions.drawing_utils
 mp_drawing_styles = mp.solutions.drawing_styles
 mp_hands = mp.solutions.hands
-
 hands = mp_hands.Hands(
     model_complexity=0,
     min_detection_confidence=0.5,
@@ -252,6 +264,7 @@ def combine_CNNinputs(CNNinputs_padded):
         image_list_vertical = []
         for y in range(7, -1, -1):
             canvas = resize_and_pad(CNNinputs_padded[8 * y + x].copy(), size=100)
+            # image_list_vertical.append(canvas)
             image_list_vertical.append(cv2.copyMakeBorder(canvas, 1, 1, 1, 1, cv2.BORDER_CONSTANT, None, (0, 255, 0)))
         vertical_images.append(np.vstack(image_list_vertical))
     combined_images = np.hstack(vertical_images)
@@ -262,7 +275,16 @@ class MainWindow(QtWidgets.QWidget):
         self.four_points = []   # chessboard corners input buffer
         self.chessboard_corners = None    # actual (used) chessboard corners
         self.rvec, self.tvec = None, None
-        self.hand_in_frame = False
+        self.hand_in_frame, self.robot_in_frame = False, False
+        self.board_result_binary = np.zeros((8, 8), dtype=np.uint8)
+        self.board_result_binary_buffer = []  # store history of self.board_result_binary
+        self.board_result_color = np.zeros((8, 8), dtype=np.uint8)
+        self.board_result_color_buffer = []  # store history of self.board_result_color
+        self.binary_filter_length = 10
+        self.color_filter_length = 5
+        self.clustering = None
+        self.clustering_lock = False
+        self.clustering_flip = False
 
         self.camera_resolution = (1920, 1080)
         self.cap = Camera(0, self.camera_resolution[0], self.camera_resolution[1])
@@ -277,6 +299,7 @@ class MainWindow(QtWidgets.QWidget):
         rclpy.init(args=None)
         self.node = Node('chessboard_estimator')
         self.pub_img = self.node.create_publisher(Image, "/camera0/image", 10)
+        self.pub_fen_binary = self.node.create_publisher(UInt8MultiArray, '/chessboard/fen_binary', 10)
         self.bridge = CvBridge()        # Bridge between "CV (NumPy array)" <-> "ROS sensor_msgs/Image"
     def __del__(self): self.node.destroy_node()
     def create_widgets(self):
@@ -328,13 +351,15 @@ class MainWindow(QtWidgets.QWidget):
             drawPoly2D(canvas, self.rvec, self.tvec+[[0.2], [0.2], [0]], size=0.4, color=(0, 0, 255), thickness=2)
             CNNinputs_padded = get_tile(self.frame, self.rvec, self.tvec)
             combined_image = combine_CNNinputs(CNNinputs_padded)
+            # cv2.imwrite("/home/fiborobotlab/test_CNNinputs.png", combined_image)
             self.image_frame_CNN_padded.setPixmap(self.convert_cv_qt(combined_image, 200, 200))
             # Detect Hand
             results = hands.process(cv2.cvtColor(self.frame, cv2.COLOR_BGR2RGB))
-            # Draw the hand annotations on the image.
+            # Check if hand overlap the chessboard
             hand_in_frame = False
             if results.multi_hand_landmarks:
                 for hand_landmarks in results.multi_hand_landmarks:
+                    # Draw the hand annotations on the image.
                     mp_drawing.draw_landmarks(
                         canvas,
                         hand_landmarks,
@@ -350,7 +375,23 @@ class MainWindow(QtWidgets.QWidget):
                             break
                     if hand_in_frame == True: break
             self.hand_in_frame = hand_in_frame
-            print(self.hand_in_frame)
+            if not (self.hand_in_frame or self.robot_in_frame):  # only continue to classify chess pieces if no hand&robot in frame
+                infer_request_binary.infer([CNNinputs_padded])
+                board_result_binary = infer_request_binary.get_output_tensor().data[:].reshape(8, 8)
+                board_result_binary = np.where(board_result_binary < 0, 0, 1)   # Interpreted prediction
+                self.board_result_binary_buffer.append(board_result_binary)
+                if len(self.board_result_binary_buffer) >= self.binary_filter_length:
+                    for y in range(8):
+                        for x in range(8):
+                            buffer = []
+                            for i in range(self.binary_filter_length): buffer.append(
+                                self.board_result_binary_buffer[i][y][x])
+                            # update value to most frequent in buffer
+                            self.board_result_binary[y][x] = np.argmax(np.bincount(buffer))
+                            # if np.all(np.array(buffer) == buffer[0]): self.board_result_binary[y][x] = buffer[0]
+                    while len(self.board_result_binary_buffer) >= self.binary_filter_length:
+                        self.board_result_binary_buffer.pop(0)  # remove first element in buffer
+                print(self.board_result_binary)
         self.image_frame.setPixmap(self.convert_cv_qt(canvas, self.disply_width, self.display_height))
         self.show()
         # update after 1 second
