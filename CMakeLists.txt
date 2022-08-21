@@ -96,6 +96,8 @@ install(PROGRAMS
   scripts/Communication.py
   scripts/pseudo_state.py
   scripts/chessai_fake.py
+  scripts/pub_number_button.py
+  scripts/sub_number_button.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

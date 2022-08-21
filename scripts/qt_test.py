@@ -9,7 +9,7 @@ class DisplayImageWidget(QtWidgets.QWidget):
         self.four_points = []
 
         self.button_clear = QtWidgets.QPushButton('clear_points')
-        self.button_clear.clicked.connect(self.show_image)
+        self.button_clear.clicked.connect(self.clear_points)
         self.button_confirm = QtWidgets.QPushButton('Confirm')
         self.button_confirm.clicked.connect(self.set_points)
         self.image_frame = QtWidgets.QLabel()
