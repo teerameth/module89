@@ -19,6 +19,7 @@ import cv2
 import math
 import numpy as np
 import random
+import mediapipe as mp
 from camera import Camera
 # obj_points = np.array([[-0.2, -0.23, 0], [0.2, -0.23, 0], [0.2, 0.23, 0], [-0.2, 0.23, 0]])
 obj_points = np.array([[-0.2, -0.2, 0], [0.2, -0.2, 0], [0.2, 0.2, 0], [-0.2, 0.2, 0]])
@@ -29,6 +30,15 @@ chess_piece_height = {"king": (0.081, 0.097), "queen": (0.07, 0.0762), "bishop":
 chess_piece_diameter = {"king": (0.028, 0.0381), "queen": (0.028, 0.0362), "bishop": (0.026, 0.032), "knight": (0.026, 0.03255), "rook": (0.026, 0.03255), "pawn": (0.0191, 0.02825)}
 mask_contour_index_list = [[0, 1, 2, 3], [4, 5, 6, 7], [0, 1, 5, 4], [1, 2, 6, 5], [2, 3, 7, 6], [3, 0, 4, 7]]
 scan_box_height = min(chess_piece_height['king'])
+
+mp_drawing = mp.solutions.drawing_utils
+mp_drawing_styles = mp.solutions.drawing_styles
+mp_hands = mp.solutions.hands
+
+hands = mp_hands.Hands(
+    model_complexity=0,
+    min_detection_confidence=0.5,
+    min_tracking_confidence=0.5)
 def draw_axis(img, corners, tvec, rvec):
     axis = np.float32([[0, 0, 0], [0.1, 0, 0], [0, 0.1, 0], [0, 0, 0.1]]).reshape(-1, 3)
     # project 3D points to image plane
@@ -252,6 +262,7 @@ class MainWindow(QtWidgets.QWidget):
         self.four_points = []   # chessboard corners input buffer
         self.chessboard_corners = None    # actual (used) chessboard corners
         self.rvec, self.tvec = None, None
+        self.hand_in_frame = False
 
         self.camera_resolution = (1920, 1080)
         self.cap = Camera(0, self.camera_resolution[0], self.camera_resolution[1])
@@ -318,7 +329,28 @@ class MainWindow(QtWidgets.QWidget):
             CNNinputs_padded = get_tile(self.frame, self.rvec, self.tvec)
             combined_image = combine_CNNinputs(CNNinputs_padded)
             self.image_frame_CNN_padded.setPixmap(self.convert_cv_qt(combined_image, 200, 200))
-
+            # Detect Hand
+            results = hands.process(cv2.cvtColor(self.frame, cv2.COLOR_BGR2RGB))
+            # Draw the hand annotations on the image.
+            hand_in_frame = False
+            if results.multi_hand_landmarks:
+                for hand_landmarks in results.multi_hand_landmarks:
+                    mp_drawing.draw_landmarks(
+                        canvas,
+                        hand_landmarks,
+                        mp_hands.HAND_CONNECTIONS,
+                        mp_drawing_styles.get_default_hand_landmarks_style(),
+                        mp_drawing_styles.get_default_hand_connections_style())
+                    for point in hand_landmarks.landmark:
+                        x = point.x * self.frame.shape[1]
+                        y = point.y * self.frame.shape[0]
+                        chessboard_poly = getPoly2D(self.rvec, self.tvec+[[0.2], [0.2], [0]], size=0.4).astype(np.int32)
+                        if cv2.pointPolygonTest(chessboard_poly, (x, y), False) == 1.0:
+                            hand_in_frame = True
+                            break
+                    if hand_in_frame == True: break
+            self.hand_in_frame = hand_in_frame
+            print(self.hand_in_frame)
         self.image_frame.setPixmap(self.convert_cv_qt(canvas, self.disply_width, self.display_height))
         self.show()
         # update after 1 second
