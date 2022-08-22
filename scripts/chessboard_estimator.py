@@ -28,18 +28,18 @@ obj_points = np.array([[-0.2, -0.2, 0], [0.2, -0.2, 0], [0.2, 0.2, 0], [-0.2, 0.
 # C930e
 cameraMatrix = np.array([[1176.3318391347427, 0.0, 933.6507321953259], [0.0, 1173.600391970806, 544.8869859448852], [0.0, 0.0, 1.0]], np.float32)
 dist = np.array([[0.08051354728224885, -0.17305343907163906, 0.0006471377956487211, 0.0002086472663196551, 0.06817438846344685]])
-export_size = 224
+export_size = 100
 chess_piece_height = {"king": (0.081, 0.097), "queen": (0.07, 0.0762), "bishop": (0.058, 0.065), "knight": (0.054, 0.05715), "rook": (0.02845, 0.048), "pawn": (0.043, 0.045)}
 chess_piece_diameter = {"king": (0.028, 0.0381), "queen": (0.028, 0.0362), "bishop": (0.026, 0.032), "knight": (0.026, 0.03255), "rook": (0.026, 0.03255), "pawn": (0.0191, 0.02825)}
 mask_contour_index_list = [[0, 1, 2, 3], [4, 5, 6, 7], [0, 1, 5, 4], [1, 2, 6, 5], [2, 3, 7, 6], [3, 0, 4, 7]]
 scan_box_height = min(chess_piece_height['king'])   # reference height for cuboid zero-padding
-model_path_binary = "/home/fiborobotlab/models/classification/chess/MobileNetV2_binary/saved_model"
+model_path_binary = "/home/fiborobotlab/models/classification/chess/binary/binary_ir"
 model_path_color = "/home/fiborobotlab/models/classification/chess/MobileNetV2_color/saved_model"
 
 ie = Core()
 model_binary = ie.read_model(model=model_path_binary+".xml", weights=model_path_binary+".bin")
 model_color = ie.read_model(model=model_path_color+".xml", weights=model_path_color+".bin")
-model_binary.reshape([64, 224, 224, 3]) # set input as fixed batch
+model_binary.reshape([64, 100, 100, 3]) # set input as fixed batch
 compiled_model_binary = ie.compile_model(model_binary, "GPU", {"PERFORMANCE_HINT": "THROUGHPUT"})
 infer_request_binary = compiled_model_binary.create_infer_request()
 
@@ -373,7 +373,14 @@ class MainWindow(QtWidgets.QWidget):
             cv2.polylines(canvas, [np.array(self.chessboard_corners, np.int32).reshape((-1,1,2))], True, (0, 0, 255))
             # drawPoly2D(canvas, self.rvec, self.tvec+[[0.2], [0.2], [0]], size=0.4, color=(0, 0, 255), thickness=2)
             CNNinputs_padded = get_tile_top(self.frame, self.rvec, self.tvec)
-            combined_image = combine_CNNinputs(CNNinputs_padded)
+            CNNinputs_padded_canvas = np.array(CNNinputs_padded, dtype=np.uint8)
+            for y in range(8):
+                for x in range(8):
+                    overlay = np.zeros((export_size, export_size, 3), dtype=np.uint8)
+                    overlay[:, :] = (0, 0, 255) if self.board_result_binary[y][x] == 0 else (0, 255, 0)
+                    CNNinputs_padded_canvas[8 * y + x] = cv2.addWeighted(CNNinputs_padded_canvas[8 * y + x], 0.8, overlay, 0.2, 0.0)
+
+            combined_image = combine_CNNinputs(CNNinputs_padded_canvas)
             # cv2.imwrite("/home/fiborobotlab/test_CNNinputs.png", combined_image)
             self.image_frame_CNN_padded.setPixmap(self.convert_cv_qt(combined_image, 200, 200))
             # Detect Hand
