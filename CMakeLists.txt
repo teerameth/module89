@@ -81,6 +81,7 @@ install(PROGRAMS
   scripts/chessboard_locator_dope.py
   scripts/chessboard_classifier.py
   scripts/chessboard_encoder_fake.py
+  scripts/chessboard_estimator.py
   scripts/chess_engine.py
   scripts/chess_client.py
   scripts/hand_detector.py
@@ -95,6 +96,8 @@ install(PROGRAMS
   scripts/Communication.py
   scripts/pseudo_state.py
   scripts/chessai_fake.py
+  scripts/pub_number_button.py
+  scripts/sub_number_button.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

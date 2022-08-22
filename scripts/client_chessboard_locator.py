@@ -1,4 +1,4 @@
-#!/usr/bin/env /home/teera/.virtualenvs/cv/bin/python
+#!/usr/bin/env -S HOME=${HOME} ${HOME}/.virtualenvs/cv/bin/python
 import cv2, os
 from module89.srv import ChessboardPose
 

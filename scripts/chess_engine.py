@@ -1,4 +1,4 @@
-#!/usr/bin/env /home/teera/.virtualenvs/cv/bin/python
+#!/usr/bin/env -S HOME=${HOME} ${HOME}/.virtualenvs/cv/bin/python
 
 from module89.srv import FindBestMove
 from std_msgs.msg import String

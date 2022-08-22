@@ -38,18 +38,17 @@ class Communication:
     """
 
     def __init__(self, port="com3", baudrate=1000000):
-        try:
-            self.ser = serial.Serial(port=port, baudrate=baudrate)
-            self.status = 1
-            print("Comport is Open")
-            # while(True):
-            #     if(self.Readline() == "start"):
-            #         print("connect to dsPIC success")
-            #         break
-        except:
-            print("\nConnection Error !\nComport = " +
-                  str(port)+" ?\n")
-            self.status = 0
+        self.ser = serial.Serial(port=port, baudrate=baudrate)
+        self.status = 1
+        print("Comport is Open")
+        # while(True):
+        #     if(self.Readline() == "start"):
+        #         print("connect to dsPIC success")
+        #         break
+        # except:
+        #     print("\nConnection Error !\nComport = " +
+        #           str(port)+" ?\n")
+        #     self.status = 0
 
     def Write(self, Command, Data):
         Buffer = []
@@ -267,3 +266,6 @@ class Communication:
     def Close(self):
         self.ser.close()
 
+if __name__ == "__main__":
+    com = Communication(port="/dev/ttyUSB0")
+    com.SetHome()
