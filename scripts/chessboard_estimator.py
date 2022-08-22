@@ -258,6 +258,28 @@ def get_tile(img, rvec, tvec):
         CNNinput_padded = resize_and_pad(CNNinputs[i], size=export_size)
         CNNinputs_padded.append(CNNinput_padded)
     return CNNinputs_padded
+def llr_tile_top(rvec, tvec):
+    rotM = np.zeros(shape=(3, 3))
+    rotM, _ = cv2.Rodrigues(rvec, rotM, jacobian=0)
+    ### Draw chess piece space ###
+    counter = 0
+    poly_tile_list = []
+    for y in range(3, -5, -1):
+        for x in range(-4, 4):
+            board_coordinate = np.array([x * 0.05, y * 0.05, 0.0])
+            # find angle of each tile
+            translated_tvec = tvec + np.dot(board_coordinate, rotM.T).reshape(3, 1)
+            poly_tile = getPoly2D(rvec, translated_tvec, size=0.05)
+            poly_tile_list.append(poly_tile)
+    return poly_tile_list
+def get_tile_top(img, rvec, tvec):
+    poly_tile_list = llr_tile_top(rvec, tvec)
+    CNNinputs = []
+    pts2 = np.float32([(0, export_size-1), (export_size-1, export_size-1), (export_size-1, 0), (0, 0)])
+    for poly_tile in poly_tile_list:
+        M = cv2.getAffineTransform(np.float32(poly_tile).reshape((4, 2))[:3], pts2[:3])
+        CNNinputs.append(cv2.warpAffine(img, M, (export_size, export_size)))
+    return CNNinputs
 def combine_CNNinputs(CNNinputs_padded):
     vertical_images = []
     for x in range(8):
@@ -348,8 +370,9 @@ class MainWindow(QtWidgets.QWidget):
         canvas = self.frame.copy()
         if self.rvec is not None and self.tvec is not None:
             canvas = draw_axis(canvas, self.chessboard_corners, self.tvec, self.rvec)
-            drawPoly2D(canvas, self.rvec, self.tvec+[[0.2], [0.2], [0]], size=0.4, color=(0, 0, 255), thickness=2)
-            CNNinputs_padded = get_tile(self.frame, self.rvec, self.tvec)
+            cv2.polylines(canvas, [np.array(self.chessboard_corners, np.int32).reshape((-1,1,2))], True, (0, 0, 255))
+            # drawPoly2D(canvas, self.rvec, self.tvec+[[0.2], [0.2], [0]], size=0.4, color=(0, 0, 255), thickness=2)
+            CNNinputs_padded = get_tile_top(self.frame, self.rvec, self.tvec)
             combined_image = combine_CNNinputs(CNNinputs_padded)
             # cv2.imwrite("/home/fiborobotlab/test_CNNinputs.png", combined_image)
             self.image_frame_CNN_padded.setPixmap(self.convert_cv_qt(combined_image, 200, 200))
@@ -379,19 +402,24 @@ class MainWindow(QtWidgets.QWidget):
                 infer_request_binary.infer([CNNinputs_padded])
                 board_result_binary = infer_request_binary.get_output_tensor().data[:].reshape(8, 8)
                 board_result_binary = np.where(board_result_binary < 0, 0, 1)   # Interpreted prediction
+                print(board_result_binary)
+                print(np.bincount(board_result_binary.ravel()))
                 self.board_result_binary_buffer.append(board_result_binary)
                 if len(self.board_result_binary_buffer) >= self.binary_filter_length:
                     for y in range(8):
                         for x in range(8):
                             buffer = []
-                            for i in range(self.binary_filter_length): buffer.append(
-                                self.board_result_binary_buffer[i][y][x])
+                            for i in range(self.binary_filter_length): buffer.append(self.board_result_binary_buffer[i][y][x])
                             # update value to most frequent in buffer
                             self.board_result_binary[y][x] = np.argmax(np.bincount(buffer))
                             # if np.all(np.array(buffer) == buffer[0]): self.board_result_binary[y][x] = buffer[0]
                     while len(self.board_result_binary_buffer) >= self.binary_filter_length:
                         self.board_result_binary_buffer.pop(0)  # remove first element in buffer
-                print(self.board_result_binary)
+                # print(self.board_result_binary)
+        if len(self.four_points) != 0:
+            for center in self.four_points:
+                scaled_center = (int(center[0]/self.display_scale), int(center[1]/self.display_scale))
+                canvas = cv2.circle(canvas, scaled_center, 5, (0, 255, 0), -1)
         self.image_frame.setPixmap(self.convert_cv_qt(canvas, self.disply_width, self.display_height))
         self.show()
         # update after 1 second
@@ -403,6 +431,7 @@ class MainWindow(QtWidgets.QWidget):
         y_offset = int(self.image_frame.pos().y())
         self.four_points.append((x-x_offset, y-y_offset))
         self.update_text()
+
     def update_text(self):
         self.textLabel.setText(str(self.four_points))
     @QtCore.pyqtSlot()
@@ -443,7 +472,7 @@ class MainWindow(QtWidgets.QWidget):
         rvec = correct_180(self.frame, rvec, tvec)
 
         self.rvec, self.tvec = rvec, tvec
-        self.four_points = []
+        # self.four_points = []
     def convert_cv_qt(self, cv_img, width, height):
         """Convert from an opencv image to QPixmap"""
         rgb_image = cv2.cvtColor(cv_img, cv2.COLOR_BGR2RGB)
