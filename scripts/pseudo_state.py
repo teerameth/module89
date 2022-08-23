@@ -8,7 +8,7 @@ from module89.srv import ExecuteBestMove, PseudoBoardSetup
 
 import chess
 import chess.engine
-engine = chess.engine.SimpleEngine.popen_uci("stopfish")
+engine = chess.engine.SimpleEngine.popen_uci("stockfish")
 engine.configure({"Threads": 6})
 limit = chess.engine.Limit(time=5)
 

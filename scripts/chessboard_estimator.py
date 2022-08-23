@@ -19,6 +19,7 @@ import random
 import mediapipe as mp
 from camera import Camera
 from openvino.runtime import Core, Layout, Type
+from sklearn.cluster import KMeans
 
 # obj_points = np.array([[-0.2, -0.23, 0], [0.2, -0.23, 0], [0.2, 0.23, 0], [-0.2, 0.23, 0]])
 obj_points = np.array([[-0.2, -0.2, 0], [0.2, -0.2, 0], [0.2, 0.2, 0], [-0.2, 0.2, 0]])
@@ -33,12 +34,10 @@ chess_piece_height = {"king": (0.081, 0.097), "queen": (0.07, 0.0762), "bishop":
 chess_piece_diameter = {"king": (0.028, 0.0381), "queen": (0.028, 0.0362), "bishop": (0.026, 0.032), "knight": (0.026, 0.03255), "rook": (0.026, 0.03255), "pawn": (0.0191, 0.02825)}
 mask_contour_index_list = [[0, 1, 2, 3], [4, 5, 6, 7], [0, 1, 5, 4], [1, 2, 6, 5], [2, 3, 7, 6], [3, 0, 4, 7]]
 scan_box_height = min(chess_piece_height['king'])   # reference height for cuboid zero-padding
-model_path_binary = "/home/fiborobotlab/models/classification/chess/binary/binary_ir"
-model_path_color = "/home/fiborobotlab/models/classification/chess/MobileNetV2_color/saved_model"
+model_path_binary = "/home/fiborobotlab/models/classification/chess/chess_ir"
 
 ie = Core()
 model_binary = ie.read_model(model=model_path_binary+".xml", weights=model_path_binary+".bin")
-model_color = ie.read_model(model=model_path_color+".xml", weights=model_path_color+".bin")
 model_binary.reshape([64, 100, 100, 3]) # set input as fixed batch
 compiled_model_binary = ie.compile_model(model_binary, "GPU", {"PERFORMANCE_HINT": "THROUGHPUT"})
 infer_request_binary = compiled_model_binary.create_infer_request()
@@ -322,6 +321,10 @@ class MainWindow(QtWidgets.QWidget):
         self.node = Node('chessboard_estimator')
         self.pub_img = self.node.create_publisher(Image, "/camera0/image", 10)
         self.pub_fen_binary = self.node.create_publisher(UInt8MultiArray, '/chessboard/fen_binary', 10)
+        self.pub_fen_color = self.node.create_publisher(UInt8MultiArray, '/chessboard/fen_color', 10)
+        self.pub_fen = self.node.create_publisher(UInt8MultiArray, '/chessboard/fen', 10)
+
+
         self.bridge = CvBridge()        # Bridge between "CV (NumPy array)" <-> "ROS sensor_msgs/Image"
     def __del__(self): self.node.destroy_node()
     def create_widgets(self):
@@ -342,7 +345,8 @@ class MainWindow(QtWidgets.QWidget):
         self.button_save.clicked.connect(self.save_points)
         self.button_load = QPushButton('Load')
         self.button_load.clicked.connect(self.load_points)
-
+        self.button_color_lock = QPushButton('LOCK Color clustering')
+        self.button_color_lock.clicked.connect(self.lock_color)
 
         self.layout = QVBoxLayout()
         self.layout.addWidget(self.image_frame)
@@ -352,6 +356,7 @@ class MainWindow(QtWidgets.QWidget):
         self.layout.addWidget(self.button_confirm)
         self.layout.addWidget(self.button_save)
         self.layout.addWidget(self.button_load)
+        self.layout.addWidget(self.button_color_lock)
 
         self.setLayout(self.layout)
         self.show()
@@ -407,10 +412,74 @@ class MainWindow(QtWidgets.QWidget):
             self.hand_in_frame = hand_in_frame
             if not (self.hand_in_frame or self.robot_in_frame):  # only continue to classify chess pieces if no hand&robot in frame
                 infer_request_binary.infer([CNNinputs_padded])
-                board_result_binary = infer_request_binary.get_output_tensor().data[:].reshape(8, 8)
-                board_result_binary = np.where(board_result_binary < 0, 0, 1)   # Interpreted prediction
+                board_result = infer_request_binary.get_output_tensor().data  # shape = (64, 8)
+                board_result_binary = np.argmax(board_result, axis=1).reshape(8, 8)
+                board_result_binary = np.where(board_result_binary == 0, 0, 1)  # Interpreted prediction
+                board_result_color = board_result[:, 1:]  # exclude first channel (empty tile) and keep only color features
+                # color clustering
+                tile_index_non_empty = np.argwhere(board_result_binary.ravel() != 0).reshape(-1)    # get indices of all non-empty tile
+                board_result_color = board_result_color[tile_index_non_empty]
+                if self.clustering_lock:  # Use saved clustering model
+                    clustering = self.clustering
+                    cluster_result = clustering.predict(board_result_color)
+                else:
+                    if len(board_result_color) < 2:  # not enough sample for clustering
+                        clustering = None
+                        self.node.get_logger().warn("Not enough sample for clustering (Minimum is 2)")
+                    else:
+                        clustering = KMeans(n_clusters=2, random_state=0).fit(board_result_color)
+                        cluster_result = clustering.labels_
+                        self.clustering = clustering  # update clustering model
+                        ## fit to nearest side automatically ##
+                        white_side, black_side = [], []
+                        for j in range(len(tile_index_non_empty)):
+                            row_index = int(tile_index_non_empty[j] / 8)
+                            if row_index < 4:
+                                black_side.append(cluster_result[j])
+                            else:
+                                white_side.append(cluster_result[j])
+                        try:
+                            if np.argmax(np.bincount(white_side)) == 0:  # Whites already labeled as '0'
+                                self.clustering_flip = False
+                            else:
+                                self.clustering_flip = True
+                        except:
+                            pass
+                if clustering is not None:
+                    for j in range(len(cluster_result)):
+                        cluster_label = cluster_result[j]
+                        if self.clustering_flip == True:
+                            cluster_label = abs(cluster_label - 1)  # flip 0 <-> 1
+                    # self.board_result_color_buffer.append(self.board_result_color)
+                    color_array = np.zeros((8, 8), dtype=np.uint8)
+                    for i in range(len(tile_index_non_empty)):
+                        non_empty_index = tile_index_non_empty[i]
+                        color_array[int(non_empty_index / 8)][non_empty_index % 8] = cluster_result[i]
+                    self.board_result_color_buffer.append(color_array)
+                    # print(self.board_result_color_buffer)
+                    if len(self.board_result_color_buffer) >= self.color_filter_length:  # fill buffer first
+                        for y in range(8):
+                            for x in range(8):
+                                buffer = []
+                                for i in range(self.color_filter_length): buffer.append(
+                                    self.board_result_color_buffer[i][y][x])
+                                # update value to most frequent in buffer
+                                self.board_result_color[y][x] = np.argmax(np.bincount(buffer))
+                                # if np.all(np.array(buffer) == buffer[0]): self.board_result_color[y][x] = buffer[0]
+                        while len(self.board_result_color_buffer) >= self.color_filter_length:
+                            self.board_result_color_buffer.pop(0)  # remove first element in buffer
+
                 print(board_result_binary)
                 print(np.bincount(board_result_binary.ravel()))
+
+                ## Publish FEN binary ##
+                fen_binary_msg = UInt8MultiArray()
+                fen_binary_msg.data = [int(item) for item in self.board_result_binary.reshape(-1)]
+                self.pub_fen_binary .publish(fen_binary_msg)
+                fen_color_msg = UInt8MultiArray()
+                fen_color_msg.data = [int(item) for item in self.board_result_color.reshape(-1)]
+                self.pub_fen_color.publish(fen_color_msg)
+
                 self.board_result_binary_buffer.append(board_result_binary)
                 if len(self.board_result_binary_buffer) >= self.binary_filter_length:
                     for y in range(8):
@@ -467,6 +536,14 @@ class MainWindow(QtWidgets.QWidget):
             self.rvec = loaded['rvec']
             self.chessboard_corners = loaded['corners']
             self.solvePnP()
+    def lock_color(self):
+        if self.clustering is not None: # if clustering model already exist
+            if self.clustering_lock:
+                self.clustering_lock = False
+                self.button_color_lock.setText("LOCK Color clustering")
+            else:
+                self.clustering_lock = True
+                self.button_color_lock.setText("UNLOCK Color clustering")
     def solvePnP(self):
         img_points = np.array(self.chessboard_corners, dtype=np.float32).reshape((-1, 2))
         ret, rvec, tvec = cv2.solvePnP(objectPoints=obj_points,
