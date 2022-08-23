@@ -1,6 +1,7 @@
 import os
 import glob
 import json
+from pathlib import Path
 
 import imutils
 import numpy as np
@@ -18,7 +19,7 @@ chess_piece_height = {"king": (0.081, 0.097), "queen": (0.07, 0.0762), "bishop":
 chess_piece_diameter = {"king": (0.028, 0.0381), "queen": (0.028, 0.0362), "bishop": (0.026, 0.032), "knight": (0.026, 0.03255), "rook": (0.026, 0.03255), "pawn": (0.0191, 0.02825)}
 mask_contour_index_list = [[0, 1, 2, 3], [4, 5, 6, 7], [0, 1, 5, 4], [1, 2, 6, 5], [2, 3, 7, 6], [3, 0, 4, 7]]
 scan_box_height = min(chess_piece_height['king'])
-export_size = 224
+export_size = 100
 
 def getBox2D(rvec, tvec, size = 0.05, height = scan_box_height):
     objpts = np.float32([[0, 0, 0], [size, 0, 0], [size, size, 0], [0, size, 0], [0, 0, height], [size, 0, height], [size, size, height], [0, size, height]]).reshape(-1, 3)
@@ -106,6 +107,28 @@ def get_tile(img, rvec, tvec):
         CNNinput_padded = resize_and_pad(CNNinputs[i], size=export_size)
         CNNinputs_padded.append(CNNinput_padded)
     return CNNinputs_padded, angle_list
+def llr_tile_top(rvec, tvec):
+    rotM = np.zeros(shape=(3, 3))
+    rotM, _ = cv2.Rodrigues(rvec, rotM, jacobian=0)
+    ### Draw chess piece space ###
+    counter = 0
+    poly_tile_list = []
+    for y in range(3, -5, -1):
+        for x in range(-4, 4):
+            board_coordinate = np.array([x * 0.05, y * 0.05, 0.0])
+            # find angle of each tile
+            translated_tvec = tvec.reshape(3, 1) + np.dot(board_coordinate, rotM.T).reshape(3, 1)
+            poly_tile = getPoly2D(rvec, translated_tvec, size=0.05)
+            poly_tile_list.append(poly_tile)
+    return poly_tile_list
+def get_tile_top(img, rvec, tvec):
+    poly_tile_list = llr_tile_top(rvec, tvec)
+    CNNinputs = []
+    pts2 = np.float32([(0, export_size-1), (export_size-1, export_size-1), (export_size-1, 0), (0, 0)])
+    for poly_tile in poly_tile_list:
+        M = cv2.getAffineTransform(np.float32(poly_tile).reshape((4, 2))[:3], pts2[:3])
+        CNNinputs.append(cv2.warpAffine(img, M, (export_size, export_size)))
+    return CNNinputs
 
 
 # Converting the values into features
@@ -190,8 +213,12 @@ color_writer = tf.io.TFRecordWriter(os.path.join(output_path, 'color.tfrecords')
 
 colorNames = ["black", "gold", "green", "pink", "silver", "wood", "yellow"]
 color_labels = open(color_file).readlines()
+print(len(color_labels))
 for i in range(len(file_list)):
-    [color_big, color_small] = color_labels[i].split(' ')
+    file_id = Path(file_list[i]).stem   # get only filename as string
+    if not file_id.isdigit(): continue
+    print(int(file_id))
+    [color_big, color_small] = color_labels[int(file_id)].split(' ')
     if '\n' in color_small: color_small = color_small[:-1]
     # color_big = bytes(color_big, 'utf-8')
     # color_small = bytes(color_small, 'utf-8')
@@ -218,7 +245,8 @@ for i in range(len(file_list)):
             cameraMatrix = image_features['camera_matrix'].numpy().reshape((3, 3))
             dist = image_features['dist'].numpy()
 
-            CNNinputs_padded, angle_list = get_tile(image, rvec, tvec)
+            # CNNinputs_padded, angle_list = get_tile(image, rvec, tvec)
+            CNNinputs_padded = get_tile_top(image, rvec, tvec)
 
             angle = pose2view_angle(rvec, tvec) # get view angle (radian)
             if angle > 0.2: continue # skip side view
@@ -241,11 +269,11 @@ for i in range(len(file_list)):
                     if color is None: continue  # skip empty tile
                     tf_example = image_example(tile_image, color)
                     color_writer.write(tf_example.SerializeToString())
-            canvas1 = imutils.resize(cv2.hconcat(canvas_list_big), width=1000)
-            canvas2 = imutils.resize(cv2.hconcat(canvas_list_small), width=1000)
-            canvas = cv2.vconcat([canvas1, canvas2])
-            cv2.imshow("A", canvas)
-            cv2.waitKey(1)
+            # canvas1 = imutils.resize(cv2.hconcat(canvas_list_big), width=1000)
+            # canvas2 = imutils.resize(cv2.hconcat(canvas_list_small), width=1000)
+            # canvas = cv2.vconcat([canvas1, canvas2])
+            # cv2.imshow("A", canvas)
+            # cv2.waitKey(1)
 
             # canvas = image.copy()
             # cv2.aruco.drawAxis(image=canvas,

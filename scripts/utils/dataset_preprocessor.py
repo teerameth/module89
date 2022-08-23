@@ -4,10 +4,14 @@ import json
 from pathlib import Path
 import numpy as np
 import tensorflow as tf
-import cv2
+from tqdm import tqdm
+import cv2, imutils
 import math
 from transform import poly2view_angle
-from tqdm import tqdm
+
+## Avoid to use all GPU(s)VRAM
+gpus = tf.config.experimental.list_physical_devices('GPU')
+for gpu in gpus: tf.config.experimental.set_memory_growth(gpu, True)
 
 chess_piece_height = {"king": (0.081, 0.097), "queen": (0.07, 0.0762), "bishop": (0.058, 0.065), "knight": (0.054, 0.05715), "rook": (0.02845, 0.048), "pawn": (0.043, 0.045)}
 chess_piece_diameter = {"king": (0.028, 0.0381), "queen": (0.028, 0.0362), "bishop": (0.026, 0.032), "knight": (0.026, 0.03255), "rook": (0.026, 0.03255), "pawn": (0.0191, 0.02825)}
@@ -101,6 +105,28 @@ def get_tile(img, rvec, tvec):
         CNNinput_padded = resize_and_pad(CNNinputs[i], size=export_size)
         CNNinputs_padded.append(CNNinput_padded)
     return CNNinputs_padded, angle_list
+def llr_tile_top(rvec, tvec):
+    rotM = np.zeros(shape=(3, 3))
+    rotM, _ = cv2.Rodrigues(rvec, rotM, jacobian=0)
+    ### Draw chess piece space ###
+    counter = 0
+    poly_tile_list = []
+    for y in range(3, -5, -1):
+        for x in range(-4, 4):
+            board_coordinate = np.array([x * 0.05, y * 0.05, 0.0])
+            # find angle of each tile
+            translated_tvec = tvec.reshape(3, 1) + np.dot(board_coordinate, rotM.T).reshape(3, 1)
+            poly_tile = getPoly2D(rvec, translated_tvec, size=0.05)
+            poly_tile_list.append(poly_tile)
+    return poly_tile_list
+def get_tile_top(img, rvec, tvec):
+    poly_tile_list = llr_tile_top(rvec, tvec)
+    CNNinputs = []
+    pts2 = np.float32([(0, export_size-1), (export_size-1, export_size-1), (export_size-1, 0), (0, 0)])
+    for poly_tile in poly_tile_list:
+        M = cv2.getAffineTransform(np.float32(poly_tile).reshape((4, 2))[:3], pts2[:3])
+        CNNinputs.append(cv2.warpAffine(img, M, (export_size, export_size)))
+    return CNNinputs
 
 
 # Converting the values into features
@@ -127,16 +153,13 @@ image_feature_description = {
 
 tile_feature_description = {
     'image': tf.io.FixedLenFeature([], tf.string),
-    'label': tf.io.FixedLenFeature([], tf.int64)
+    'color': tf.io.FixedLenFeature([], tf.int64)
 }
 
-def image_example(image, label):
+def image_example(image, color):
     feature = {
-        # 'height': _int64_feature(image.shape[0]),
-        # 'width': _int64_feature(image.shape[1]),
-        # 'depth': _int64_feature(image.shape[2]),
         'image': _bytes_feature(tf.io.encode_png(image)),
-        'label': _int64_feature(label),
+        'color': _int64_feature(color),
     }
     return tf.train.Example(features=tf.train.Features(feature=feature))
 
@@ -158,6 +181,19 @@ def fen2board(fen): #
                 board[i][index] = labels.index(char.lower()) + 1
                 index += 1
     return board
+def fen2symbol(fen): #
+    print(fen)
+    symbol = [['' for i in range(8)] for j in range(8)]
+    lines = fen.split('/')
+    for i in range(8):
+        line = lines[i]
+        index = 0
+        for char in line:
+            if char.isnumeric(): index += int(char)
+            else:
+                symbol[i][index] = char
+                index += 1
+    return symbol
 def pose2view_angle(rvec, tvec):
     rotM = np.zeros(shape=(3, 3))
     rotM, _ = cv2.Rodrigues(rvec, rotM, jacobian=0)
@@ -170,16 +206,30 @@ dataset_config = json.load(open(os.path.join('../../config/dataset_config.json')
 output_path = dataset_config['capture_path']
 file_list = sorted(glob.glob(os.path.join(output_path, '*.tfrecords')))
 fen_list = sorted(glob.glob(os.path.join(output_path, '*.txt')))
-top_writer = tf.io.TFRecordWriter(os.path.join(output_path, 'top.tfrecords'))
-# side_writer = tf.io.TFRecordWriter(os.path.join(output_path, 'side.tfrecords'))
+color_file = os.path.join(output_path, "color_label.txt")
+chess_writer = tf.io.TFRecordWriter(os.path.join(output_path, 'chess.tfrecords'))
 
+colorNames = ["black", "gold", "green", "pink", "silver", "wood", "yellow"]
+color_labels = open(color_file).readlines()
+print(len(color_labels))
+tile_count = {'empty':0, 'used':0}  # counter used to balance empty vs non-empty tile count
 for i in range(len(file_list)):
-    if not Path(file_list[i]).stem.isdigit(): continue
+    file_id = Path(file_list[i]).stem   # get only filename as string
+    if not file_id.isdigit(): continue
+    print(f"file_id: {file_id}")
+    [color_big, color_small] = color_labels[int(file_id)].split(' ')
+    if '\n' in color_small: color_small = color_small[:-1]
+    # color_big = bytes(color_big, 'utf-8')
+    # color_small = bytes(color_small, 'utf-8')
+    color_big = colorNames.index(color_big)
+    color_small = colorNames.index(color_small)
     file_path = file_list[i]
     fen = open(fen_list[i], "r").readline()
     print(file_path, fen_list[i])
+    print(f"color: {colorNames[color_big]} {colorNames[color_small]}")
     if '\n' in fen: fen = fen[:-1]
     board = fen2board(fen)
+    symbol = fen2symbol(fen)
     dataset = tf.data.TFRecordDataset(file_path)
     parsed_image_dataset = dataset.map(_parse_image_function, num_parallel_calls=tf.data.AUTOTUNE)
     with tqdm() as pbar:
@@ -195,26 +245,43 @@ for i in range(len(file_list)):
             cameraMatrix = image_features['camera_matrix'].numpy().reshape((3, 3))
             dist = image_features['dist'].numpy()
 
-            CNNinputs_padded, angle_list = get_tile(image, rvec, tvec)
+            # CNNinputs_padded, angle_list = get_tile(image, rvec, tvec)
+            CNNinputs_padded = get_tile_top(image, rvec, tvec)
 
             angle = pose2view_angle(rvec, tvec) # get view angle (radian)
-            # print(tvec)
-            # print(sum([tvec[k]**2 for k in range(len(tvec))]))
+            if angle > 0.2: continue # skip side view
+
+            canvas_list_big = []
+            canvas_list_small = []
             # divide 2 camera view [top <0.05, side >0.3]
             for x in range(8):
                 for y in range(8):
                     label = board[y][x]
                     tile_image = CNNinputs_padded[8 * y + x]
-                    if angle > 0.2: # side view
-                        if label != 0:
-                            label = label - 1
-                            tf_example = image_example(tile_image, label)
-                            # side_writer.write(tf_example.SerializeToString())
-                        else: continue # skip empty
-                    else: # top view
-                        if label != 0: label = 1    # binary label
-                        tf_example = image_example(tile_image, label)
-                        top_writer.write(tf_example.SerializeToString())
+                    color = None
+                    if symbol[y][x].isupper():
+                        canvas_list_big.append(tile_image)
+                        color = color_big
+                    elif symbol[y][x].islower():
+                        canvas_list_small.append(tile_image)
+                        color = color_small
+                    if label != 0: label = 1    # binary label
+                    if color is None:   # empty tile
+                        if tile_count['empty'] > tile_count['used']: continue   # skip too much empty-tile
+                        tile_count['empty'] += 1
+                        tf_example = image_example(tile_image, 0)   # label 0 as empty tile
+                    else:               # non-empty tile
+                        tile_count['used'] += 1
+                        tf_example = image_example(tile_image, color+1) # 0 is reserved for empty-tile
+                    chess_writer.write(tf_example.SerializeToString())
+
+            # canvas1 = imutils.resize(cv2.hconcat(canvas_list_big), width=1000)
+            # canvas2 = imutils.resize(cv2.hconcat(canvas_list_small), width=1000)
+            # canvas = cv2.vconcat([canvas1, canvas2])
+            # print(f"color: {colorNames[color_big]} {colorNames[color_small]}")
+            # cv2.imshow("A", canvas)
+            # cv2.waitKey(1)
+
 
             # canvas = image.copy()
             # cv2.aruco.drawAxis(image=canvas,
@@ -224,7 +291,7 @@ for i in range(len(file_list)):
             #                    tvec=tvec,
             #                    length=0.1)
             # cv2.imshow("A", canvas)
-
+            #
             # vertical_images = []
             # for x in range(8):
             #     image_list_vertical = []
@@ -232,15 +299,27 @@ for i in range(len(file_list)):
             #         canvas = resize_and_pad(CNNinputs_padded[8 * y + x].copy(), size=100)
             #         # cv2.putText(canvas, str(round(angle_list[8 * y + x])), (10, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color=(0, 0, 255))
             #         label = board[y][x]
+            #         s = symbol[y][x]
             #         if label != 0:
-            #             cv2.putText(canvas, labels[label - 1], (10, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
-            #                         color=(0, 0, 255))
+            #             cv2.putText(canvas, s, (10, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color=(0, 0, 255))
             #         image_list_vertical.append(
             #             cv2.copyMakeBorder(canvas, 1, 1, 1, 1, cv2.BORDER_CONSTANT, None, (0, 255, 0)))
             #     vertical_images.append(np.vstack(image_list_vertical))
             # combined_images = np.hstack(vertical_images)
             # cv2.imshow("All CNN inputs", combined_images)
-            # key = cv2.waitKey(0)
+            #
+            # key = cv2.waitKey(100)
             # if key == ord('n'): break
-# side_writer.close()
-top_writer.close()
+chess_writer.close()
+
+
+dataset_config = json.load(open(os.path.join('../../config/dataset_config.json')))
+output_path = dataset_config['capture_path']
+
+def save_shard(dataset_name, output_path, num_shard=100):
+    raw_dataset = tf.data.TFRecordDataset(os.path.join(output_path, dataset_name))
+    for i in tqdm(range(num_shard)):
+        writer = tf.data.experimental.TFRecordWriter(os.path.join(output_path, f'{dataset_name}-{i:04d}-of-{(num_shard-1):04d}'))
+        writer.write(raw_dataset.shard(num_shard, i))
+
+save_shard('chess.tfrecords', output_path, 100)
