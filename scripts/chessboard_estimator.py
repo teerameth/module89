@@ -8,11 +8,11 @@ from PyQt5.QtGui import QPixmap
 
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import UInt8MultiArray
+from std_msgs.msg import UInt8MultiArray, Float32
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
 
-import cv2
+import cv2, imutils
 import math
 import numpy as np
 import random
@@ -296,7 +296,7 @@ class MainWindow(QtWidgets.QWidget):
         self.four_points = []   # chessboard corners input buffer
         self.chessboard_corners = None    # actual (used) chessboard corners
         self.rvec, self.tvec = None, None
-        self.hand_in_frame, self.robot_in_frame = False, False
+        self.hand_in_frame, self.robot_in_frame = False, True
         self.board_result_binary = np.zeros((8, 8), dtype=np.uint8)
         self.board_result_binary_buffer = []  # store history of self.board_result_binary
         self.board_result_color = np.zeros((8, 8), dtype=np.uint8)
@@ -306,6 +306,8 @@ class MainWindow(QtWidgets.QWidget):
         self.clustering = None
         self.clustering_lock = False
         self.clustering_flip = False
+        self.zoom_area = 50
+        self.cursor = (-1, -1) # mouse tracking (for zoom)
 
         self.camera_resolution = (1920, 1080)
         self.cap = Camera(0, self.camera_resolution[0], self.camera_resolution[1])
@@ -323,10 +325,14 @@ class MainWindow(QtWidgets.QWidget):
         self.pub_fen_binary = self.node.create_publisher(UInt8MultiArray, '/chessboard/fen_binary', 10)
         self.pub_fen_color = self.node.create_publisher(UInt8MultiArray, '/chessboard/fen_color', 10)
         self.pub_fen = self.node.create_publisher(UInt8MultiArray, '/chessboard/fen', 10)
-
+        self.joint0_sub = self.node.create_subscription(Float32, '/chessboard/joint0', self.robot_joint0_callback, 10)
 
         self.bridge = CvBridge()        # Bridge between "CV (NumPy array)" <-> "ROS sensor_msgs/Image"
     def __del__(self): self.node.destroy_node()
+    def robot_joint0_callback(self, joint0):
+        angle = joint0.data
+        if abs(angle) < 0.75: self.robot_in_frame = True
+        else: self.robot_in_frame = False
     def create_widgets(self):
         # create label to display image
         self.image_frame = QLabel(self)
@@ -357,7 +363,7 @@ class MainWindow(QtWidgets.QWidget):
         self.layout.addWidget(self.button_save)
         self.layout.addWidget(self.button_load)
         self.layout.addWidget(self.button_color_lock)
-
+        self.setMouseTracking(True)  # enable mouse tracking event not pressing
         self.setLayout(self.layout)
         self.show()
 
@@ -366,7 +372,7 @@ class MainWindow(QtWidgets.QWidget):
         self.timer.timeout.connect(self.timer_callback)
         self.timer.start(10)
     def timer_callback(self):
-        # rclpy.spin_once(self.node)
+        rclpy.spin_once(self.node)
         self.frame = self.cap.read()
         image_msg = self.bridge.cv2_to_imgmsg(self.frame, "bgr8")
         image_msg.header.stamp = self.node.get_clock().now().to_msg()
@@ -469,8 +475,8 @@ class MainWindow(QtWidgets.QWidget):
                         while len(self.board_result_color_buffer) >= self.color_filter_length:
                             self.board_result_color_buffer.pop(0)  # remove first element in buffer
 
-                print(board_result_binary)
-                print(np.bincount(board_result_binary.ravel()))
+                # print(board_result_binary)
+                # print(np.bincount(board_result_binary.ravel()))
 
                 ## Publish FEN binary ##
                 fen_binary_msg = UInt8MultiArray()
@@ -491,22 +497,30 @@ class MainWindow(QtWidgets.QWidget):
                             # if np.all(np.array(buffer) == buffer[0]): self.board_result_binary[y][x] = buffer[0]
                     while len(self.board_result_binary_buffer) >= self.binary_filter_length:
                         self.board_result_binary_buffer.pop(0)  # remove first element in buffer
-                # print(self.board_result_binary)
+                print(self.board_result_binary)
         if len(self.four_points) != 0:
             for center in self.four_points:
                 scaled_center = (int(center[0]/self.display_scale), int(center[1]/self.display_scale))
                 canvas = cv2.circle(canvas, scaled_center, 5, (0, 255, 0), -1)
+        # Partial zoom when mouse moving inside camera frame
+        # if self.cursor[0] >0 and self.cursor[0] < canvas.shape[1] and self.cursor[1] > 0 and self.cursor[1] < canvas.shape[0]:
+        #     if self.cursor[0] - 2 * self.zoom_area > 0 and canvas.shape[1] - self.cursor[0] > 2 * self.zoom_area and self.cursor[ 1] - 2 * self.zoom_area > 0 and canvas.shape[0] - self.cursor[1] > 2 * self.zoom_area:
+        #         zoom_source = canvas[self.cursor[1] - self.zoom_area:self.cursor[1] + self.zoom_area, self.cursor[0] - self.zoom_area:self.cursor[0] + self.zoom_area]
+        #         canvas[self.cursor[1] - 2 * self.zoom_area:self.cursor[1] + 2 * self.zoom_area, self.cursor[0] - 2 * self.zoom_area:self.cursor[0] + 2 * self.zoom_area] = imutils.resize(zoom_source, height=self.zoom_area * 4)
         self.image_frame.setPixmap(self.convert_cv_qt(canvas, self.disply_width, self.display_height))
         self.show()
         # update after 1 second
         self.timer.start(10)
-    def mousePressEvent(self, event):
+    def mouseReleaseEvent(self, event):
         x = event.x()                      # actual cursor position
         y = event.y()
         x_offset = int(self.image_frame.pos().x())   # image offset
         y_offset = int(self.image_frame.pos().y())
         self.four_points.append((x-x_offset, y-y_offset))
         self.update_text()
+    def mouseMoveEvent(self, event) -> None:
+        # print(event.x(), event.y())
+        self.cursor = (int((event.x()-self.image_frame.pos().x())/self.display_scale), int((event.y()-self.image_frame.pos().y())/self.display_scale))
 
     def update_text(self):
         self.textLabel.setText(str(self.four_points))

@@ -62,7 +62,7 @@ class PseudoStateController(Node):
         self.fen_binary = None
         self.fen_color = None
         # self.hand_detected = False
-        self.AI_side = 1    # 0=White, 1=Black
+        self.AI_side = 0    # 0=White, 1=Black
         self.turn = 0       # 0=White, 1=Black (White always play first)
         self._AI_ready = 0  # 0=Idle, 1=Busy, 2=Ready
         self.best_move = None
@@ -176,7 +176,6 @@ class PseudoStateController(Node):
         return response
     def setup_callback(self, request, response):
         self.AI_side = request.ai_is
-        print(self.AI_side)
         return response
     # def camera0_hand_callback(self, hand):
     #     if hand.data and self.turn == self.human_turn: self.hand_detected = True # only updated in human turn
@@ -188,6 +187,7 @@ class PseudoStateController(Node):
         self.pseudo_fen.publish(String(data=self.board.fen()))  # publish board state as FEN
         self.AI_ready_pub.publish(UInt8(data=self.AI_ready))    # publish AI status
         self.turn_pub.publish(UInt8(data=self.turn))            # publish turn status
+        # self.get_logger().info("Update board state to:\n{}".format(str(self.board)))
 def main():
     rclpy.init()
     pseudo_state_controller = PseudoStateController()

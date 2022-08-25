@@ -11,12 +11,17 @@ def generate_launch_description():
     return LaunchDescription([
         Node(
             package='module89',
-            executable='camera.py',
-            name='camera0',
-            parameters=[{
-                'name': 0,
-                'id': 0,
-            }],
+            executable='chessboard_estimator.py',
+            name='chessboard_estimator',
         ),
-
+        Node(
+            package='module89',
+            executable='pseudo_state.py',
+            name='FEN_tracker',
+        ),
+        Node(
+            package='module89',
+            executable='GameController.py',
+            name='GameController',
+        ),
     ])

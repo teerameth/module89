@@ -162,7 +162,7 @@ class GameController(Node):
 
         self.get = False
         self.TimeBefore = time.time()
-        self.connect_pyserial(com="/dev/ttyUSB0")
+        self.connect_pyserial(com="/dev/Narwhal")
         timer_period = 1 / 30  # seconds
         self.timer = self.create_timer(timer_period, self.timer_callback)
         # self.run()
@@ -187,12 +187,22 @@ class GameController(Node):
     def ai_bestmove_callback(self,msg):
         # print(self.get_ready, self.autoplay_mode, self.robotmode)
         if self.get_ready and self.autoplay_mode and self.robotmode == 1:
+            print(self.chessboard_fen)
+            a =self.chessboard_fen.split(" ")
+            b = a[0].split("/")
+            for i in range(len(b)):
+                b[i] = b[i][::-1]
+            a[0] = "/".join(b)
+            self.chessboard_fen = " ".join(a)
+            print(self.chessboard_fen)
+
+
             self.autoplay_fen = str(self.chessboard_fen)
             self.ai_move = msg.data
             self.get_ready = False
             board = [[]]
             board_row = 0
-            alphabet = "abcdefgh"
+            alphabet = "hgfedcba"
             piece_type = "KQBNRP"
             move = self.ai_move
             for i in self.autoplay_fen:
